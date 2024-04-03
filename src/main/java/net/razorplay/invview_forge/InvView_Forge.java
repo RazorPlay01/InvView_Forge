@@ -22,7 +22,6 @@ import java.io.FileOutputStream;
 // The value here should match an entry in the META-INF/mods.toml file
 @Mod(InvView_Forge.MOD_ID)
 public class InvView_Forge {
-    private static MinecraftServer minecraftServer;
     public static final String MOD_ID = "inv_view_forge";
     private static final Logger LOGGER = LogUtils.getLogger();
 
@@ -33,17 +32,10 @@ public class InvView_Forge {
     }
 
 
-    @SubscribeEvent
-    public void onServerStarting(ServerStartingEvent event) {
-        onLogicalServerStarting(event.getServer());
-    }
 
-    private void onLogicalServerStarting(MinecraftServer server) {
-        minecraftServer = server;
-    }
 
     public static void savePlayerData(ServerPlayer player) {
-        File playerDataDir = minecraftServer.getWorldPath(LevelResource.PLAYER_DATA_DIR).toFile();
+        File playerDataDir = player.server.getWorldPath(LevelResource.PLAYER_DATA_DIR).toFile();
 
         try {
             CompoundTag compoundTag = player.saveWithoutId(new CompoundTag());

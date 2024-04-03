@@ -1,23 +1,21 @@
 package net.razorplay.invview_forge.container;
 
+import net.minecraft.world.inventory.ClickType;
+import net.razorplay.invview_forge.InvView_Forge;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
-import net.razorplay.invview_forge.InvView_Forge;
 
 public class PlayerInventoryScreenHandler extends AbstractContainerMenu {
-    private final Inventory viewInventory;
     private final ServerPlayer targetPlayer;
 
     public PlayerInventoryScreenHandler(int syncId, ServerPlayer player, ServerPlayer targetPlayer) {
         super(MenuType.GENERIC_9x5, syncId);
         this.targetPlayer = targetPlayer;
-        this.viewInventory = targetPlayer.getInventory();
         Inventory playerInventory = player.getInventory();
 
         int rows = 5;
@@ -39,12 +37,6 @@ public class PlayerInventoryScreenHandler extends AbstractContainerMenu {
         for (n = 0; n < 9; ++n) {
             this.addSlot(new Slot(playerInventory, n, 8 + n * 18, 161 + i));
         }
-    }
-
-    @Override
-    public void removed(Player player) {
-        InvView_Forge.savePlayerData((ServerPlayer) viewInventory.player);
-        super.removed(player);
     }
 
     @Override
@@ -102,6 +94,7 @@ public class PlayerInventoryScreenHandler extends AbstractContainerMenu {
         sourceSlot.onTake(playerIn, sourceStack);
         return copyOfSourceStack;
     }
+
     @Override
     public void clicked(int i, int j, ClickType actionType, Player playerEntity) {
         if (i >= 41 && i <= 44) {
@@ -110,9 +103,15 @@ public class PlayerInventoryScreenHandler extends AbstractContainerMenu {
             } else {
                 playerEntity.getInventory().setItem(i, ItemStack.EMPTY);
             }
-        }  else {
+        } else {
             super.clicked(i, j, actionType, playerEntity);
         }
         targetPlayer.inventoryMenu.sendAllDataToRemote();
+    }
+
+    @Override
+    public void removed(Player player) {
+        InvView_Forge.savePlayerData(targetPlayer);
+        super.removed(player);
     }
 }

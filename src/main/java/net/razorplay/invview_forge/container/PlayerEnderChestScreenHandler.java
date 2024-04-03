@@ -7,13 +7,14 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.PlayerEnderChestContainer;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.razorplay.invview_forge.InvView_Forge;
 
 public class PlayerEnderChestScreenHandler extends AbstractContainerMenu {
-    private final PlayerEnderChestContainer enderChestInventory;
+    private final ServerPlayer targetPlayer;
 
     public PlayerEnderChestScreenHandler(int syncId, ServerPlayer player, ServerPlayer targetPlayer) {
         super(MenuType.GENERIC_9x3, syncId);
-        this.enderChestInventory = targetPlayer.getEnderChestInventory();
+        this.targetPlayer = targetPlayer;
 
         int rows = 3;
         int i = (rows - 4) * 18;
@@ -21,7 +22,7 @@ public class PlayerEnderChestScreenHandler extends AbstractContainerMenu {
         int m;
         for (n = 0; n < rows; ++n) {
             for (m = 0; m < 9; ++m) {
-                this.addSlot(new Slot(enderChestInventory, m + n * 9, 8 + m * 18, 18 + n * 18));
+                this.addSlot(new Slot(targetPlayer.getEnderChestInventory(), m + n * 9, 8 + m * 18, 18 + n * 18));
             }
         }
 
@@ -92,5 +93,9 @@ public class PlayerEnderChestScreenHandler extends AbstractContainerMenu {
         sourceSlot.onTake(playerIn, sourceStack);
         return copyOfSourceStack;
     }
-
+    @Override
+    public void removed(Player player) {
+        InvView_Forge.savePlayerData(targetPlayer);
+        super.removed(player);
+    }
 }
