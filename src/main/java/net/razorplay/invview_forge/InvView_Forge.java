@@ -9,7 +9,9 @@ import net.minecraft.world.level.storage.LevelResource;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fmllegacy.server.ServerLifecycleHooks;
 import net.minecraftforge.fmlserverevents.FMLServerStartingEvent;
+import net.minecraftforge.fmlserverevents.ServerLifecycleEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -21,26 +23,13 @@ import java.io.FileOutputStream;
 public class InvView_Forge {
     public static final String MOD_ID = "inv_view_forge";
     private static final Logger LOGGER = LogManager.getLogger();
-    private static MinecraftServer minecraftServer;
 
     public InvView_Forge() {
-
         MinecraftForge.EVENT_BUS.register(this);
     }
 
-
-    @SubscribeEvent
-    public void onServerStarting(FMLServerStartingEvent event) {
-        onLogicalServerStarting(event.getServer());
-
-    }
-
-    private void onLogicalServerStarting(MinecraftServer server) {
-        minecraftServer = server;
-    }
-
     public static void savePlayerData(ServerPlayer player) {
-        File playerDataDir = minecraftServer.getWorldPath(LevelResource.PLAYER_DATA_DIR).toFile();
+        File playerDataDir = player.server.getWorldPath(LevelResource.PLAYER_DATA_DIR).toFile();
 
         try {
             CompoundTag compoundTag = player.saveWithoutId(new CompoundTag());
