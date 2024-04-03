@@ -16,7 +16,7 @@ import java.io.File;
 
 @Mod(InvView_Forge.MOD_ID)
 public class InvView_Forge {
-    public static final String MOD_ID = "inv-view-forge";
+    public static final String MOD_ID = "inv_view_forge";
     public static final Logger LOGGER = LogManager.getLogger(MOD_ID);
 
     public InvView_Forge() {
