@@ -11,6 +11,7 @@ import net.minecraft.commands.arguments.GameProfileArgument;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextComponent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -41,40 +42,70 @@ public class InvViewCommands {
 
     private int executeEnderChestCheck(CommandContext<CommandSourceStack> context, ServerPlayer player) throws CommandSyntaxException {
         ServerPlayer targetPlayer = getRequestedPlayer(context);
-        MenuProvider screenHandlerFactory = new MenuProvider() {
-            @Override
-            public Component getDisplayName() {
-                return targetPlayer.getDisplayName();
+        boolean canOpen = true;
+
+        if (!PlayerEnderChestScreenHandler.endChestScreenTargetPlayers.isEmpty()) {
+            for (int i = 0; i < PlayerEnderChestScreenHandler.endChestScreenTargetPlayers.size(); i++) {
+                if (PlayerEnderChestScreenHandler.endChestScreenTargetPlayers.get(i).getDisplayName().equals(targetPlayer.getDisplayName())) {
+                    canOpen = false;
+                    break;
+                }
             }
+        }
+        if (canOpen) {
+            MenuProvider screenHandlerFactory = new MenuProvider() {
+                @Override
+                public Component getDisplayName() {
+                    return targetPlayer.getDisplayName();
+                }
 
-            @Nullable
-            @Override
-            public AbstractContainerMenu createMenu(int i, Inventory inventory, Player player_) {
-                return new PlayerEnderChestScreenHandler(i, player, targetPlayer);
+                @Nullable
+                @Override
+                public AbstractContainerMenu createMenu(int i, Inventory inventory, Player player_) {
+                    return new PlayerEnderChestScreenHandler(i, player, targetPlayer);
 
-            }
-        };
+                }
+            };
 
-        NetworkHooks.openGui(player, screenHandlerFactory);
+            NetworkHooks.openGui(player, screenHandlerFactory);
+        } else {
+            context.getSource().sendFailure(new TextComponent("ERROR: The enderchest container is already being used by another player."));
+        }
         return 1;
     }
 
     private int executeInventoryCheck(CommandContext<CommandSourceStack> context, ServerPlayer player) throws CommandSyntaxException {
         ServerPlayer targetPlayer = getRequestedPlayer(context);
-        MenuProvider screenHandlerFactory = new MenuProvider() {
-            @Override
-            public Component getDisplayName() {
-                return targetPlayer.getDisplayName();
-            }
 
-            @Nullable
-            @Override
-            public AbstractContainerMenu createMenu(int i, Inventory inventory, Player player_) {
-                return new PlayerInventoryScreenHandler(i, player, targetPlayer);
-            }
-        };
+        boolean canOpen = true;
 
-        NetworkHooks.openGui(player, screenHandlerFactory);
+        if (!PlayerInventoryScreenHandler.invScreenTargetPlayers.isEmpty()) {
+            for (int i = 0; i < PlayerInventoryScreenHandler.invScreenTargetPlayers.size(); i++) {
+                if (PlayerInventoryScreenHandler.invScreenTargetPlayers.get(i).getDisplayName().equals(targetPlayer.getDisplayName())) {
+                    canOpen = false;
+                    break;
+                }
+            }
+        }
+        if (canOpen) {
+            MenuProvider screenHandlerFactory = new MenuProvider() {
+                @Override
+                public Component getDisplayName() {
+                    return targetPlayer.getDisplayName();
+                }
+
+                @Nullable
+                @Override
+                public AbstractContainerMenu createMenu(int i, Inventory inventory, Player player_) {
+                    return new PlayerInventoryScreenHandler(i, player, targetPlayer);
+
+                }
+            };
+
+            NetworkHooks.openGui(player, screenHandlerFactory);
+        } else {
+            context.getSource().sendFailure(new TextComponent("ERROR: The inventory container is already being used by another player."));
+        }
         return 1;
     }
 

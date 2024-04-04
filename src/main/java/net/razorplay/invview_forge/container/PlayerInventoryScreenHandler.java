@@ -10,13 +10,19 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class PlayerInventoryScreenHandler extends AbstractContainerMenu {
+    public static List<ServerPlayer> invScreenTargetPlayers = new ArrayList<>();
     private final ServerPlayer targetPlayer;
 
     public PlayerInventoryScreenHandler(int syncId, ServerPlayer player, ServerPlayer targetPlayer) {
         super(MenuType.GENERIC_9x5, syncId);
         this.targetPlayer = targetPlayer;
         Inventory playerInventory = player.getInventory();
+
+        invScreenTargetPlayers.add(targetPlayer);
 
         int rows = 5;
         int i = (rows - 4) * 18;
@@ -112,6 +118,14 @@ public class PlayerInventoryScreenHandler extends AbstractContainerMenu {
     @Override
     public void removed(Player player) {
         InvView_Forge.savePlayerData(targetPlayer);
+
+        for (int i = 0; i < invScreenTargetPlayers.size(); i++) {
+            if (invScreenTargetPlayers.get(i).equals(targetPlayer)){
+                invScreenTargetPlayers.remove(i);
+                break;
+            }
+        }
+
         super.removed(player);
     }
 }
