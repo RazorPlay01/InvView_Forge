@@ -4,17 +4,22 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.MenuType;
-import net.minecraft.world.inventory.PlayerEnderChestContainer;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.razorplay.invview_forge.InvView_Forge;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class PlayerEnderChestScreenHandler extends AbstractContainerMenu {
+    public static List<ServerPlayer> endChestScreenTargetPlayers = new ArrayList<>();
     private final ServerPlayer targetPlayer;
 
     public PlayerEnderChestScreenHandler(int syncId, ServerPlayer player, ServerPlayer targetPlayer) {
         super(MenuType.GENERIC_9x3, syncId);
         this.targetPlayer = targetPlayer;
+
+        endChestScreenTargetPlayers.add(targetPlayer);
 
         int rows = 3;
         int i = (rows - 4) * 18;
@@ -61,6 +66,7 @@ public class PlayerEnderChestScreenHandler extends AbstractContainerMenu {
 
     // THIS YOU HAVE TO DEFINE!
     private static final int TE_INVENTORY_SLOT_COUNT = 9 * 3;  // must be the number of slots you have!
+
     @Override
     public ItemStack quickMoveStack(Player playerIn, int index) {
         Slot sourceSlot = slots.get(index);
@@ -93,9 +99,18 @@ public class PlayerEnderChestScreenHandler extends AbstractContainerMenu {
         sourceSlot.onTake(playerIn, sourceStack);
         return copyOfSourceStack;
     }
+
     @Override
     public void removed(Player player) {
         InvView_Forge.savePlayerData(targetPlayer);
+
+        for (int i = 0; i < endChestScreenTargetPlayers.size(); i++) {
+            if (endChestScreenTargetPlayers.get(i).equals(targetPlayer)){
+                endChestScreenTargetPlayers.remove(i);
+                break;
+            }
+        }
+
         super.removed(player);
     }
 }
