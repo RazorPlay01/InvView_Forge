@@ -15,6 +15,7 @@ import net.minecraft.inventory.container.SimpleNamedContainerProvider;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.nbt.NBTDynamicOps;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.world.DimensionType;
 import net.minecraft.world.server.ServerWorld;
 import net.minecraftforge.fml.network.NetworkHooks;
@@ -39,21 +40,50 @@ public class InvViewCommands {
 
     private int executeEnderChestCheck(CommandContext<CommandSource> context, ServerPlayerEntity player) throws CommandSyntaxException {
         ServerPlayerEntity targetPlayer = getRequestedPlayer(context);
+        boolean canOpen = true;
 
-        INamedContainerProvider screenHandlerFactory = new SimpleNamedContainerProvider((syncId, inv, playerEntity) ->
-                new PlayerEnderChestScreenHandler(syncId, player, targetPlayer.inventory), targetPlayer.getDisplayName()
-        );
-        NetworkHooks.openGui(player, screenHandlerFactory);
+        if (!PlayerEnderChestScreenHandler.endChestScreenTargetPlayers.isEmpty()) {
+            for (int i = 0; i < PlayerEnderChestScreenHandler.endChestScreenTargetPlayers.size(); i++) {
+                if (PlayerEnderChestScreenHandler.endChestScreenTargetPlayers.get(i).getDisplayName().equals(targetPlayer.getDisplayName())) {
+                    canOpen = false;
+                    break;
+                }
+            }
+        }
+
+        if (canOpen) {
+            INamedContainerProvider screenHandlerFactory = new SimpleNamedContainerProvider((syncId, inv, playerEntity) ->
+                    new PlayerEnderChestScreenHandler(syncId, player, targetPlayer.inventory), targetPlayer.getDisplayName()
+            );
+            NetworkHooks.openGui(player, screenHandlerFactory);
+        } else {
+            context.getSource().sendFailure(new StringTextComponent("ERROR: The enderchest container is already being used by another player."));
+        }
         return 1;
     }
 
     private int executeInventoryCheck(CommandContext<CommandSource> context, ServerPlayerEntity player) throws CommandSyntaxException {
         ServerPlayerEntity targetPlayer = getRequestedPlayer(context);
+        boolean canOpen = true;
 
-        INamedContainerProvider screenHandlerFactory = new SimpleNamedContainerProvider((syncId, inv, playerEntity) ->
-                new PlayerInventoryScreenHandler(syncId, player, targetPlayer.inventory), targetPlayer.getDisplayName()
-        );
-        NetworkHooks.openGui(player, screenHandlerFactory);
+
+        if (!PlayerInventoryScreenHandler.invScreenTargetPlayers.isEmpty()) {
+            for (int i = 0; i < PlayerInventoryScreenHandler.invScreenTargetPlayers.size(); i++) {
+                if (PlayerInventoryScreenHandler.invScreenTargetPlayers.get(i).getDisplayName().equals(targetPlayer.getDisplayName())) {
+                    canOpen = false;
+                    break;
+                }
+            }
+        }
+
+        if (canOpen) {
+            INamedContainerProvider screenHandlerFactory = new SimpleNamedContainerProvider((syncId, inv, playerEntity) ->
+                    new PlayerInventoryScreenHandler(syncId, player, targetPlayer.inventory), targetPlayer.getDisplayName()
+            );
+            NetworkHooks.openGui(player, screenHandlerFactory);
+        } else {
+            context.getSource().sendFailure(new StringTextComponent("ERROR: The inventory container container is already being used by another player."));
+        }
         return 1;
     }
 

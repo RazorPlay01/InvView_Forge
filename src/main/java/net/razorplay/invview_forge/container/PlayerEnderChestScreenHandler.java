@@ -12,12 +12,18 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.razorplay.invview_forge.InvView_Forge;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class PlayerEnderChestScreenHandler extends Container {
+    public static List<ServerPlayerEntity> endChestScreenTargetPlayers = new ArrayList<>();
     private final ServerPlayerEntity targetPlayer;
 
     public PlayerEnderChestScreenHandler(int syncId, ServerPlayerEntity player, PlayerInventory viewInventory) {
         super(ContainerType.GENERIC_9x3, syncId);
         this.targetPlayer = (ServerPlayerEntity) viewInventory.player;
+
+        endChestScreenTargetPlayers.add(targetPlayer);
 
         int rows = 3;
         int i = (rows - 4) * 18;
@@ -98,6 +104,14 @@ public class PlayerEnderChestScreenHandler extends Container {
     @Override
     public void removed(PlayerEntity player) {
         InvView_Forge.SavePlayerData(targetPlayer);
+
+        for (int i = 0; i < endChestScreenTargetPlayers.size(); i++) {
+            if (endChestScreenTargetPlayers.get(i).equals(targetPlayer)){
+                endChestScreenTargetPlayers.remove(i);
+                break;
+            }
+        }
+
         super.removed(player);
     }
 }
