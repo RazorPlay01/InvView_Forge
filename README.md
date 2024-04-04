@@ -1,7 +1,7 @@
 Allows you to open and manipulate the inventories and ender chests of online and offline players.
 
 # Command
-/view (inv|echest) <playername>
+/view (inv|echest) %playername%
 
 (Requires OP)
 
