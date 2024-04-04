@@ -6,10 +6,10 @@ Allows you to open and manipulate the inventories and ender chests of online and
 (Requires OP)
 
 ## /view inv <playername> preview
-<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/I_Lo3sls0f0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+"https://www.youtube-nocookie.com/embed/I_Lo3sls0f0"
 
 ## /view echest <playername> preview
-<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/SIJjHWIhZwg" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+"https://www.youtube-nocookie.com/embed/SIJjHWIhZwg"
 
 ## Offline player preview
-<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/rwDyySPDZQY" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+"https://www.youtube-nocookie.com/embed/rwDyySPDZQY"
