@@ -16,7 +16,6 @@ import org.slf4j.Logger;
 import java.io.File;
 import java.io.FileOutputStream;
 
-// The value here should match an entry in the META-INF/mods.toml file
 @Mod(InvView_Forge.MOD_ID)
 public class InvView_Forge {
     public static final String MOD_ID = "inv_view_forge";
