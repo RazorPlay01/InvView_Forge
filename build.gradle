@@ -1,7 +1,7 @@
 plugins {
     id 'eclipse'
     id 'maven-publish'
-    id 'net.minecraftforge.gradle' version '5.1.+'
+    id 'net.minecraftforge.gradle' version '[6.0.16,6.2)'
 }
 
 version = project.mod_version
@@ -137,6 +137,17 @@ repositories {
             includeGroup "maven.modrinth"
         }
     }
+    exclusiveContent {
+        forRepository {
+            maven {
+                url "https://cursemaven.com"
+            }
+        }
+        forRepositories(fg.repository) // Only add this if you're using ForgeGradle, otherwise remove this line
+        filter {
+            includeGroup "curse.maven"
+        }
+    }
 }
 
 dependencies {
@@ -147,6 +158,11 @@ dependencies {
 
     runtimeOnly fg.deobf("maven.modrinth:P0Mu4wcQ:qrgK6WbC")//Artifacts
     runtimeOnly fg.deobf("maven.modrinth:9s6osm5g:Sqf2NXVd")//ClothConfig
+
+    implementation fg.deobf("curse.maven:inventorio-forge-497122:4557766")//Inventorio
+    runtimeOnly ("curse.maven:kotlin-for-forge-351264:4983659")//KotlinForge
+
+    //implementation fg.deobf("curse.maven:upgraded-ender-chests-457082:4721165")//UpgradedEnderChests
 
 }
 
