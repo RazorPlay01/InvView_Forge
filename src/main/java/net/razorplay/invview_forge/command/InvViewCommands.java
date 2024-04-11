@@ -18,7 +18,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.world.DimensionType;
 import net.minecraft.world.server.ServerWorld;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.network.NetworkHooks;
+import net.razorplay.invview_forge.container.PlayerCuriosInventoryScreenHandler;
 import net.razorplay.invview_forge.container.PlayerEnderChestScreenHandler;
 import net.razorplay.invview_forge.container.PlayerInventoryScreenHandler;
 
@@ -35,7 +37,40 @@ public class InvViewCommands {
                         .then(Commands.literal("echest")
                                 .then(Commands.argument("target", GameProfileArgument.gameProfile())
                                         .executes(context -> executeEnderChestCheck(context, (ServerPlayerEntity) context.getSource().getEntity()))))
+                        .then(Commands.literal("curios")
+                                .then(Commands.argument("target", GameProfileArgument.gameProfile())
+                                        .executes(context -> executeCuriosCheck(context, (ServerPlayerEntity) context.getSource().getEntity()))))
         );
+    }
+
+    private int executeCuriosCheck(CommandContext<CommandSource> context, ServerPlayerEntity player) throws CommandSyntaxException {
+        ServerPlayerEntity targetPlayer = getRequestedPlayer(context);
+
+        if (ModList.get().isLoaded("curios")) {
+            boolean canOpen = true;
+
+            if (!PlayerCuriosInventoryScreenHandler.curiosInvScreenTargetPlayers.isEmpty()) {
+                for (int i = 0; i < PlayerCuriosInventoryScreenHandler.curiosInvScreenTargetPlayers.size(); i++) {
+                    if (PlayerCuriosInventoryScreenHandler.curiosInvScreenTargetPlayers.get(i).getDisplayName().equals(targetPlayer.getDisplayName())) {
+                        canOpen = false;
+                        break;
+                    }
+                }
+            }
+            if (canOpen) {
+                INamedContainerProvider screenHandlerFactory = new SimpleNamedContainerProvider((syncId, inv, playerEntity) ->
+                        new PlayerCuriosInventoryScreenHandler(syncId, player, targetPlayer), targetPlayer.getDisplayName()
+                );
+
+                NetworkHooks.openGui(player, screenHandlerFactory);
+            } else {
+                context.getSource().sendFailure(new StringTextComponent("ERROR: The curios inventory container is already being used by another player."));
+            }
+        } else {
+            context.getSource().sendFailure(new StringTextComponent("ERROR: CuriosApi dependency not found!"));
+        }
+
+        return 1;
     }
 
     private int executeEnderChestCheck(CommandContext<CommandSource> context, ServerPlayerEntity player) throws CommandSyntaxException {

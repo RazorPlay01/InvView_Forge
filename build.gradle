@@ -23,6 +23,9 @@ minecraft {
     //mappings channel: 'snapshot', version: '20210309-1.16.5'
     runs {
         client {
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${buildDir}/createSrgToMcp/output.srg"
+
             workingDirectory project.file('run')
 
             property 'forge.logging.markers', 'REGISTRIES'
@@ -36,6 +39,9 @@ minecraft {
             }
         }
         server {
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${buildDir}/createSrgToMcp/output.srg"
+
             workingDirectory project.file('run')
             property 'forge.logging.markers', 'REGISTRIES'
             property 'forge.logging.console.level', 'debug'
@@ -66,8 +72,33 @@ minecraft {
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
+repositories {
+    maven {
+        url = "https://maven.theillusivec4.top/"
+    }
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "Modrinth"
+                url = "https://api.modrinth.com/maven"
+            }
+        }
+        forRepositories(fg.repository) // Only add this if you're using ForgeGradle, otherwise remove this line
+        filter {
+            includeGroup "maven.modrinth"
+        }
+    }
+}
+
 dependencies {
     minecraft "net.minecraftforge:forge:${project.minecraft_version}"
+
+    runtimeOnly fg.deobf("top.theillusivec4.curios:curios-forge:1.16.5-4.1.0.1")//CuriosForge
+    compileOnly fg.deobf("top.theillusivec4.curios:curios-forge:1.16.5-4.1.0.1:api")//CuriosApi
+
+    //runtimeOnly fg.deobf("maven.modrinth:P0Mu4wcQ:zdWM9d47")//Artifacts
+    //runtimeOnly fg.deobf("maven.modrinth:9s6osm5g:nr1znv5v")//ClothConfig
+
 }
 
 jar {

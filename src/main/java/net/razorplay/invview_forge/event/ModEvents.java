@@ -8,6 +8,7 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.server.command.ConfigCommand;
 import net.razorplay.invview_forge.InvView_Forge;
 import net.razorplay.invview_forge.command.InvViewCommands;
+import net.razorplay.invview_forge.container.PlayerCuriosInventoryScreenHandler;
 import net.razorplay.invview_forge.container.PlayerEnderChestScreenHandler;
 import net.razorplay.invview_forge.container.PlayerInventoryScreenHandler;
 
@@ -23,24 +24,28 @@ public class ModEvents {
         ConfigCommand.register(event.getDispatcher());
     }
 
+
     @SubscribeEvent
     public static void onPlayerJoin(PlayerEvent.PlayerLoggedInEvent event) {
-        if (!isPlayerUnique(PlayerInventoryScreenHandler.invScreenTargetPlayers, (ServerPlayerEntity) event.getEntity()) ||
-                !isPlayerUnique(PlayerEnderChestScreenHandler.endChestScreenTargetPlayers, (ServerPlayerEntity) event.getEntity())) {
+        if (isUniquePlayer(PlayerInventoryScreenHandler.invScreenTargetPlayers, (ServerPlayerEntity) event.getEntity()) ||
+                isUniquePlayer(PlayerEnderChestScreenHandler.endChestScreenTargetPlayers, (ServerPlayerEntity) event.getEntity()) ||
+                isUniquePlayer(PlayerCuriosInventoryScreenHandler.curiosInvScreenTargetPlayers, (ServerPlayerEntity) event.getEntity())) {
 
             List<ServerPlayerEntity> serverPlayers = event.getEntity().getServer().getPlayerList().getPlayers();
 
             serverPlayers.forEach(player -> {
                 if (player.containerMenu instanceof PlayerEnderChestScreenHandler ||
-                        player.containerMenu instanceof PlayerInventoryScreenHandler) {
+                        player.containerMenu instanceof PlayerInventoryScreenHandler ||
+                        player.containerMenu instanceof PlayerCuriosInventoryScreenHandler) {
                     player.closeContainer();
                 }
             });
         }
     }
 
-    private static boolean isPlayerUnique(List<ServerPlayerEntity> players, ServerPlayerEntity targetPlayer) {
+    private static boolean isUniquePlayer(List<ServerPlayerEntity> players, ServerPlayerEntity targetPlayer) {
         return players.stream()
-                .noneMatch(player -> player.getDisplayName().equals(targetPlayer.getDisplayName()));
+                .anyMatch(player -> player.getDisplayName().equals(targetPlayer.getDisplayName()));
     }
+
 }
