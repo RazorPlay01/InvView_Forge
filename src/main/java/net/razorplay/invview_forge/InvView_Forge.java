@@ -4,13 +4,10 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.Util;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtIo;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.storage.LevelResource;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.server.ServerStartingEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.apache.logging.log4j.LogManager;
@@ -19,7 +16,6 @@ import org.slf4j.Logger;
 import java.io.File;
 import java.io.FileOutputStream;
 
-// The value here should match an entry in the META-INF/mods.toml file
 @Mod(InvView_Forge.MOD_ID)
 public class InvView_Forge {
     public static final String MOD_ID = "inv_view_forge";
