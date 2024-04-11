@@ -1,8 +1,12 @@
 package net.razorplay.invview_forge.container;
 
+import de.rubixdev.inventorio.api.InventorioAPI;
+import de.rubixdev.inventorio.player.PlayerInventoryAddon;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
@@ -12,50 +16,36 @@ import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
 import java.util.List;
 
-public class PlayerEnderChestScreenHandler extends AbstractContainerMenu {
-    public static List<ServerPlayer> endChestScreenTargetPlayers = new ArrayList<>();
+public class PlayerInventorioScreenHandler extends AbstractContainerMenu {
+    public static List<ServerPlayer> inventorioScreenTargetPlayers = new ArrayList<>();
+    private final SimpleContainer inventorioContainer = new SimpleContainer(9 * 2);
     private final ServerPlayer targetPlayer;
-    int rows;
+    private int totalItems = 0;
 
-    public PlayerEnderChestScreenHandler(MenuType menuType, int syncId, ServerPlayer player, ServerPlayer targetPlayer) {
-        super(menuType, syncId);
+    public PlayerInventorioScreenHandler(int syncId, ServerPlayer player, ServerPlayer targetPlayer) {
+        super(MenuType.GENERIC_9x2, syncId);
         this.targetPlayer = targetPlayer;
 
-        endChestScreenTargetPlayers.add(targetPlayer);
+        inventorioScreenTargetPlayers.add(targetPlayer);
 
-        switch (targetPlayer.getEnderChestInventory().getContainerSize()) {
-            case 9 -> {
-                rows = 1;
-                TE_INVENTORY_SLOT_COUNT = 9;
-            }
-            case 18 -> {
-                rows = 2;
-                TE_INVENTORY_SLOT_COUNT = 9 * 2;
-            }
-            case 36 -> {
-                rows = 4;
-                TE_INVENTORY_SLOT_COUNT = 9 * 4;
-            }
-            case 45 -> {
-                rows = 5;
-                TE_INVENTORY_SLOT_COUNT = 9 * 5;
-            }
-            case 54 -> {
-                rows =  6;
-                TE_INVENTORY_SLOT_COUNT = 9 * 6;
-            }
-            default -> {
-                rows = 3;
-                TE_INVENTORY_SLOT_COUNT = 9 * 3;
-            }
-        }
+        PlayerInventoryAddon playerInventoryAddon = InventorioAPI.getInventoryAddon(targetPlayer);
 
+        playerInventoryAddon.toolBelt.forEach(item -> {
+            inventorioContainer.setItem(totalItems, item);
+            totalItems = totalItems + 1;
+        });
+        playerInventoryAddon.utilityBelt.forEach(item -> {
+            inventorioContainer.setItem(totalItems, item);
+            totalItems = totalItems + 1;
+        });
+
+        int rows = 3;
         int i = (rows - 4) * 18;
         int n;
         int m;
         for (n = 0; n < rows; ++n) {
             for (m = 0; m < 9; ++m) {
-                this.addSlot(new Slot(targetPlayer.getEnderChestInventory(), m + n * 9, 8 + m * 18, 18 + n * 18));
+                this.addSlot(new Slot(inventorioContainer, m + n * 9, 8 + m * 18, 18 + n * 18));
             }
         }
 
@@ -70,12 +60,53 @@ public class PlayerEnderChestScreenHandler extends AbstractContainerMenu {
         }
     }
 
+    @Override
+    public void clicked(int i, int j, @NotNull ClickType actionType, @NotNull Player playerEntity) {
+        if (i > this.totalItems && i < (9 * 2)) {
+            if (actionType == ClickType.QUICK_MOVE) {
+                super.clicked(i, j, actionType, playerEntity);
+            } else {
+                playerEntity.getInventory().setItem(i, ItemStack.EMPTY);
+            }
+        } else {
+            super.clicked(i, j, actionType, playerEntity);
+        }
+        saveInv(targetPlayer);
+    }
 
     @Override
     public boolean stillValid(@NotNull Player player) {
         return true;
     }
 
+    @Override
+    public void removed(@NotNull Player player) {
+        saveInv(targetPlayer);
+        InvView_Forge.savePlayerData(targetPlayer);
+
+
+        for (int i = 0; i < inventorioScreenTargetPlayers.size(); i++) {
+            if (inventorioScreenTargetPlayers.get(i).equals(targetPlayer)) {
+                inventorioScreenTargetPlayers.remove(i);
+                break;
+            }
+        }
+        totalItems = 0;
+        super.removed(player);
+    }
+
+    public void saveInv(ServerPlayer targetPlayer) {
+        PlayerInventoryAddon playerInventoryAddon = InventorioAPI.getInventoryAddon(targetPlayer);
+
+        for (int i = 0; i <= 4; i++) {
+            playerInventoryAddon.toolBelt.set(i, inventorioContainer.getItem(i));
+        }
+
+        for (int i = 0; i <= 7; i++) {
+            playerInventoryAddon.utilityBelt.set(i, inventorioContainer.getItem(i + 5));
+        }
+
+    }
 
     // CREDIT GOES TO: diesieben07 | https://github.com/diesieben07/SevenCommons
     // must assign a slot number to each of the slots used by the GUI.
@@ -93,7 +124,7 @@ public class PlayerEnderChestScreenHandler extends AbstractContainerMenu {
     private static final int TE_INVENTORY_FIRST_SLOT_INDEX = VANILLA_FIRST_SLOT_INDEX + VANILLA_SLOT_COUNT;
 
     // THIS YOU HAVE TO DEFINE!
-    private static int TE_INVENTORY_SLOT_COUNT;  // must be the number of slots you have!
+    private static final int TE_INVENTORY_SLOT_COUNT = 9 * 2;  // must be the number of slots you have!
 
     @Override
     public @NotNull ItemStack quickMoveStack(@NotNull Player playerIn, int index) {
@@ -126,19 +157,5 @@ public class PlayerEnderChestScreenHandler extends AbstractContainerMenu {
         }
         sourceSlot.onTake(playerIn, sourceStack);
         return copyOfSourceStack;
-    }
-
-    @Override
-    public void removed(@NotNull Player player) {
-        InvView_Forge.savePlayerData(targetPlayer);
-
-        for (int i = 0; i < endChestScreenTargetPlayers.size(); i++) {
-            if (endChestScreenTargetPlayers.get(i).equals(targetPlayer)) {
-                endChestScreenTargetPlayers.remove(i);
-                break;
-            }
-        }
-
-        super.removed(player);
     }
 }

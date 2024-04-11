@@ -18,11 +18,13 @@ import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.network.NetworkHooks;
 import net.razorplay.invview_forge.container.PlayerCuriosInventoryScreenHandler;
 import net.razorplay.invview_forge.container.PlayerEnderChestScreenHandler;
+import net.razorplay.invview_forge.container.PlayerInventorioScreenHandler;
 import net.razorplay.invview_forge.container.PlayerInventoryScreenHandler;
 import org.jetbrains.annotations.NotNull;
 
@@ -35,10 +37,57 @@ public class InvViewCommands {
                 .then(Commands.literal("echest")
                         .then(Commands.argument("target", GameProfileArgument.gameProfile())
                                 .executes(context -> executeEnderChestCheck(context, (ServerPlayer) context.getSource().getEntity()))))
-                .then(Commands.literal("curios")
-                        .then(Commands.argument("target", GameProfileArgument.gameProfile())
-                                .executes(context -> executeCuriosCheck(context, (ServerPlayer) context.getSource().getEntity()))))
+                .then((ModList.get().isLoaded("curios") ?
+                        Commands.literal("curios")
+                                .then(Commands.argument("target", GameProfileArgument.gameProfile())
+                                        .executes(context -> executeCuriosCheck(context, (ServerPlayer) context.getSource().getEntity()))
+                                ) : Commands.literal(""))
+                )
+                .then((ModList.get().isLoaded("inventorio") ?
+                        Commands.literal("inventorio")
+                                .then(Commands.argument("target", GameProfileArgument.gameProfile())
+                                        .executes(context -> executeInventorioCheck(context, (ServerPlayer) context.getSource().getEntity()))
+                                ) : Commands.literal(""))
+                )
         );
+    }
+    private int executeInventorioCheck(CommandContext<CommandSourceStack> context, ServerPlayer player) throws CommandSyntaxException {
+        ServerPlayer targetPlayer = getRequestedPlayer(context);
+
+        if (ModList.get().isLoaded("inventorio")) {
+            boolean canOpen = true;
+
+            if (!PlayerInventorioScreenHandler.inventorioScreenTargetPlayers.isEmpty()) {
+                for (int i = 0; i < PlayerInventorioScreenHandler.inventorioScreenTargetPlayers.size(); i++) {
+                    if (PlayerInventorioScreenHandler.inventorioScreenTargetPlayers.get(i).getDisplayName().equals(targetPlayer.getDisplayName())) {
+                        canOpen = false;
+                        break;
+                    }
+                }
+            }
+            if (canOpen) {
+                MenuProvider screenHandlerFactory = new MenuProvider() {
+                    @Override
+                    public @NotNull Component getDisplayName() {
+                        return targetPlayer.getDisplayName();
+                    }
+
+                    @Override
+                    public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player_) {
+                        return new PlayerInventorioScreenHandler(i, player, targetPlayer);
+
+                    }
+                };
+
+                NetworkHooks.openScreen(player, screenHandlerFactory);
+            } else {
+                context.getSource().sendFailure(Component.literal("ERROR: The inventorio inventory container is already being used by another player."));
+            }
+        } else {
+            context.getSource().sendFailure(Component.literal("ERROR: Inventorio dependency not found!"));
+        }
+
+        return 1;
     }
 
     private int executeCuriosCheck(CommandContext<CommandSourceStack> context, ServerPlayer player) throws CommandSyntaxException {
@@ -101,7 +150,16 @@ public class InvViewCommands {
 
                 @Override
                 public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player_) {
-                    return new PlayerEnderChestScreenHandler(i, player, targetPlayer);
+                    MenuType menuType = switch (targetPlayer.getEnderChestInventory().getContainerSize()) {
+                        case 9 -> MenuType.GENERIC_9x1;
+                        case 18 -> MenuType.GENERIC_9x2;
+                        case 36 -> MenuType.GENERIC_9x4;
+                        case 45 -> MenuType.GENERIC_9x5;
+                        case 54 -> MenuType.GENERIC_9x6;
+                        default -> MenuType.GENERIC_9x3;
+                    };
+
+                    return new PlayerEnderChestScreenHandler(menuType, i, player, targetPlayer);
 
                 }
             };
