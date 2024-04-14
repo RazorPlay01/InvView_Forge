@@ -24,26 +24,75 @@ import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fmllegacy.network.NetworkHooks;
 import net.razorplay.invview_forge.container.PlayerCuriosInventoryScreenHandler;
 import net.razorplay.invview_forge.container.PlayerEnderChestScreenHandler;
+import net.razorplay.invview_forge.container.PlayerInventorioScreenHandler;
 import net.razorplay.invview_forge.container.PlayerInventoryScreenHandler;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 
 public class InvViewCommands {
     public InvViewCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("view").requires((player) -> {
-                            return player.hasPermission(2);
-                        })
-                        .then(Commands.literal("inv")
+        dispatcher.register(Commands.literal("view").requires((player) -> player.hasPermission(2))
+                .then(Commands.literal("inv")
+                        .then(Commands.argument("target", GameProfileArgument.gameProfile())
+                                .executes(context -> executeInventoryCheck(context, (ServerPlayer) context.getSource().getEntity()))))
+                .then(Commands.literal("echest")
+                        .then(Commands.argument("target", GameProfileArgument.gameProfile())
+                                .executes(context -> executeEnderChestCheck(context, (ServerPlayer) context.getSource().getEntity()))))
+                .then((ModList.get().isLoaded("curios") ?
+                        Commands.literal("curios")
                                 .then(Commands.argument("target", GameProfileArgument.gameProfile())
-                                        .executes(context -> executeInventoryCheck(context, (ServerPlayer) context.getSource().getEntity()))))
-                        .then(Commands.literal("echest")
+                                        .executes(context -> executeCuriosCheck(context, (ServerPlayer) context.getSource().getEntity()))
+                                ) : Commands.literal(""))
+                )
+                .then((ModList.get().isLoaded("inventorio") ?
+                        Commands.literal("inventorio")
                                 .then(Commands.argument("target", GameProfileArgument.gameProfile())
-                                        .executes(context -> executeEnderChestCheck(context, (ServerPlayer) context.getSource().getEntity()))))
-                        .then(Commands.literal("curios")
-                                .then(Commands.argument("target", GameProfileArgument.gameProfile())
-                                        .executes(context -> executeCuriosCheck(context, (ServerPlayer) context.getSource().getEntity()))))
+                                        .executes(context -> executeInventorioCheck(context, (ServerPlayer) context.getSource().getEntity()))
+                                ) : Commands.literal(""))
+                )
         );
     }
+
+    private int executeInventorioCheck(CommandContext<CommandSourceStack> context, ServerPlayer player) throws CommandSyntaxException {
+        ServerPlayer targetPlayer = getRequestedPlayer(context);
+
+        if (ModList.get().isLoaded("inventorio")) {
+            boolean canOpen = true;
+
+            if (!PlayerInventorioScreenHandler.inventorioScreenTargetPlayers.isEmpty()) {
+                for (int i = 0; i < PlayerInventorioScreenHandler.inventorioScreenTargetPlayers.size(); i++) {
+                    if (PlayerInventorioScreenHandler.inventorioScreenTargetPlayers.get(i).getDisplayName().equals(targetPlayer.getDisplayName())) {
+                        canOpen = false;
+                        break;
+                    }
+                }
+            }
+            if (canOpen) {
+                MenuProvider screenHandlerFactory = new MenuProvider() {
+                    @Override
+                    public @NotNull Component getDisplayName() {
+                        return targetPlayer.getDisplayName();
+                    }
+
+                    @Override
+                    public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player_) {
+                        return new PlayerInventorioScreenHandler(i, player, targetPlayer);
+
+                    }
+                };
+
+                NetworkHooks.openGui(player, screenHandlerFactory);
+            } else {
+                context.getSource().sendFailure(new TextComponent("ERROR: The inventorio inventory container is already being used by another player."));
+            }
+        } else {
+            context.getSource().sendFailure(new TextComponent("ERROR: Inventorio dependency not found!"));
+        }
+
+        return 1;
+    }
+
     private int executeCuriosCheck(CommandContext<CommandSourceStack> context, ServerPlayer player) throws CommandSyntaxException {
         ServerPlayer targetPlayer = getRequestedPlayer(context);
 
