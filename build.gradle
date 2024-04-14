@@ -88,6 +88,17 @@ repositories {
             includeGroup "maven.modrinth"
         }
     }
+    exclusiveContent {
+        forRepository {
+            maven {
+                url "https://cursemaven.com"
+            }
+        }
+        forRepositories(fg.repository) // Only add this if you're using ForgeGradle, otherwise remove this line
+        filter {
+            includeGroup "curse.maven"
+        }
+    }
 }
 
 dependencies {
@@ -97,8 +108,10 @@ dependencies {
     compileOnly fg.deobf("top.theillusivec4.curios:curios-forge:1.16.5-4.1.0.1:api")//CuriosApi
 
     //runtimeOnly fg.deobf("maven.modrinth:P0Mu4wcQ:zdWM9d47")//Artifacts
-    //runtimeOnly fg.deobf("maven.modrinth:9s6osm5g:nr1znv5v")//ClothConfig
+    implementation fg.deobf("curse.maven:cloth-config-348521:4633366")//ClothConfig
 
+    implementation fg.deobf("curse.maven:inventorio-forge-497122:4066030")//Inventorio
+    implementation fg.deobf("curse.maven:kotlin-for-forge-351264:3675495")//KotlinForge
 }
 
 jar {
