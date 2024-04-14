@@ -10,6 +10,7 @@ import net.razorplay.invview_forge.InvView_Forge;
 import net.razorplay.invview_forge.command.InvViewCommands;
 import net.razorplay.invview_forge.container.PlayerCuriosInventoryScreenHandler;
 import net.razorplay.invview_forge.container.PlayerEnderChestScreenHandler;
+import net.razorplay.invview_forge.container.PlayerInventorioScreenHandler;
 import net.razorplay.invview_forge.container.PlayerInventoryScreenHandler;
 
 import java.util.List;
@@ -28,14 +29,16 @@ public class ModEvents {
     public static void onPlayerJoin(PlayerEvent.PlayerLoggedInEvent event) {
         if (isUniquePlayer(PlayerInventoryScreenHandler.invScreenTargetPlayers, (ServerPlayer) event.getEntity()) ||
                 isUniquePlayer(PlayerEnderChestScreenHandler.endChestScreenTargetPlayers, (ServerPlayer) event.getEntity()) ||
-                isUniquePlayer(PlayerCuriosInventoryScreenHandler.curiosInvScreenTargetPlayers, (ServerPlayer) event.getEntity())) {
+                isUniquePlayer(PlayerCuriosInventoryScreenHandler.curiosInvScreenTargetPlayers, (ServerPlayer) event.getEntity()) ||
+                isUniquePlayer(PlayerInventorioScreenHandler.inventorioScreenTargetPlayers, (ServerPlayer) event.getEntity())) {
 
             List<ServerPlayer> serverPlayers = event.getEntity().getServer().getPlayerList().getPlayers();
 
             serverPlayers.forEach(player -> {
                 if (player.containerMenu instanceof PlayerEnderChestScreenHandler ||
                         player.containerMenu instanceof PlayerInventoryScreenHandler ||
-                            player.containerMenu instanceof PlayerCuriosInventoryScreenHandler) {
+                        player.containerMenu instanceof PlayerCuriosInventoryScreenHandler ||
+                        player.containerMenu instanceof PlayerInventorioScreenHandler) {
                     player.closeContainer();
                 }
             });

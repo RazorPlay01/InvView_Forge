@@ -159,6 +159,17 @@ repositories {
             includeGroup "maven.modrinth"
         }
     }
+    exclusiveContent {
+        forRepository {
+            maven {
+                url "https://cursemaven.com"
+            }
+        }
+        forRepositories(fg.repository) // Only add this if you're using ForgeGradle, otherwise remove this line
+        filter {
+            includeGroup "curse.maven"
+        }
+    }
 }
 
 dependencies {
@@ -167,6 +178,11 @@ dependencies {
     runtimeOnly fg.deobf("top.theillusivec4.curios:curios-forge:1.18.2-5.0.9.2")//CuriosForge
     compileOnly fg.deobf("top.theillusivec4.curios:curios-forge:1.18.2-5.0.9.2:api")//CuriosApi
 
+    //runtimeOnly fg.deobf("maven.modrinth:P0Mu4wcQ:zdWM9d47")//Artifacts
+    runtimeOnly fg.deobf("curse.maven:cloth-config-348521:4973439")//ClothConfig
+
+    implementation fg.deobf("curse.maven:inventorio-forge-497122:4557760")//Inventorio
+    implementation fg.deobf("curse.maven:kotlin-for-forge-351264:4513187")//KotlinForge
 }
 
 // Example for how to get properties into the manifest for reading at runtime.
