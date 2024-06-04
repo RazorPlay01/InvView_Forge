@@ -3,7 +3,6 @@ plugins {
     id 'idea'
     id 'maven-publish'
     id 'net.minecraftforge.gradle' version '[6.0,6.2)'
-    id "org.sonarqube" version "4.4.1.3373"
 }
 
 version = mod_version
@@ -214,13 +213,6 @@ publishing {
             url "file://${project.projectDir}/mcmodsrepo"
         }
     }
-    sonar {
-  properties {
-    property "sonar.projectKey", "RazorPlay01_InvView_Forge"
-    property "sonar.organization", "razorplay01"
-    property "sonar.host.url", "https://sonarcloud.io"
-  }
-}
 }
 
 tasks.withType(JavaCompile).configureEach {
