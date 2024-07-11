@@ -13,6 +13,7 @@ A clear and concise description of what the bug is.
 Note the Versions
 - Mod version
 - Minecreaft version
+- Game Log
 
 **Additional context**
 Add any other context about the problem here.
