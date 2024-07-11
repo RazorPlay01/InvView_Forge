@@ -12,7 +12,7 @@ A clear and concise description of what the bug is.
 
 Note the Versions
 - Mod version
-- Minecreaft version
+- Minecraft version
 - Game Log
 
 **Additional context**
