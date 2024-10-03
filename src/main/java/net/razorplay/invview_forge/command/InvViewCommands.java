@@ -18,6 +18,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -26,11 +27,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.network.NetworkHooks;
-import net.razorplay.invview_forge.container.PlayerCuriosInventoryScreenHandler;
-import net.razorplay.invview_forge.container.PlayerEnderChestScreenHandler;
-import net.razorplay.invview_forge.container.PlayerInventorioScreenHandler;
-import net.razorplay.invview_forge.container.PlayerInventoryScreenHandler;
+import net.razorplay.invview_forge.container.*;
 import org.jetbrains.annotations.NotNull;
+import org.violetmoon.quark.addons.oddities.item.BackpackItem;
+import org.violetmoon.quark.base.Quark;
 
 public class InvViewCommands {
     public InvViewCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -57,8 +57,55 @@ public class InvViewCommands {
                                 .then(Commands.argument("target", GameProfileArgument.gameProfile())
                                         .executes(context -> executeTravelersBackPackCheck(context, (ServerPlayer) context.getSource().getEntity()))
                                 ) : Commands.literal(""))
+                ).then((ModList.get().isLoaded("quark") ?
+                        Commands.literal("quark-backpack")
+                                .then(Commands.argument("target", GameProfileArgument.gameProfile())
+                                        .executes(context -> executeQuarkBackPackCheck(context, (ServerPlayer) context.getSource().getEntity()))
+                                ) : Commands.literal(""))
                 )
         );
+    }
+
+    private int executeQuarkBackPackCheck(CommandContext<CommandSourceStack> context, ServerPlayer player) throws CommandSyntaxException {
+        ServerPlayer targetPlayer = getRequestedPlayer(context);
+
+        if (ModList.get().isLoaded("quark")) {
+            if (targetPlayer.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof BackpackItem) {
+                boolean canOpen = true;
+
+                if (!PlayerQuarkBackpackScreenHandler.quarkBackpackScreenTargetPlayers.isEmpty()) {
+                    for (int i = 0; i < PlayerQuarkBackpackScreenHandler.quarkBackpackScreenTargetPlayers.size(); i++) {
+                        if (PlayerQuarkBackpackScreenHandler.quarkBackpackScreenTargetPlayers.get(i).getDisplayName().equals(targetPlayer.getDisplayName())) {
+                            canOpen = false;
+                            break;
+                        }
+                    }
+                }
+                if (canOpen) {
+                    MenuProvider screenHandlerFactory = new MenuProvider() {
+                        @Override
+                        public @NotNull Component getDisplayName() {
+                            return targetPlayer.getDisplayName();
+                        }
+
+                        @Override
+                        public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player_) {
+                            return new PlayerQuarkBackpackScreenHandler(i, player, targetPlayer);
+
+                        }
+                    };
+
+                    NetworkHooks.openScreen(player, screenHandlerFactory);
+                } else {
+                    context.getSource().sendFailure(Component.literal("ERROR: The quark backpack container is already being used by another player."));
+                }
+            } else {
+                context.getSource().getEntity().sendSystemMessage(Component.literal("The player does not have a currently equipped backpack."));
+            }
+        } else {
+            context.getSource().sendFailure(Component.literal("ERROR: Quark dependency not found!"));
+        }
+        return 1;
     }
 
 
@@ -66,9 +113,7 @@ public class InvViewCommands {
         ServerPlayer targetPlayer = getRequestedPlayer(context);
         if (CapabilityUtils.isWearingBackpack(targetPlayer)) {
             if (!context.getSource().getLevel().isClientSide) {
-                NetworkHooks.openScreen(entity, CapabilityUtils.getBackpackInv(targetPlayer), (packetBuffer) -> {
-                    packetBuffer.writeByte(Reference.WEARABLE_SCREEN_ID);
-                });
+                NetworkHooks.openScreen(entity, CapabilityUtils.getBackpackInv(targetPlayer), packetBuffer -> packetBuffer.writeByte(Reference.WEARABLE_SCREEN_ID));
             }
         } else {
             context.getSource().getEntity().sendSystemMessage(Component.literal("The player does not have a currently equipped backpack."));

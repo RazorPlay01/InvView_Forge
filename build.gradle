@@ -158,6 +158,7 @@ dependencies {
     compileOnly fg.deobf("curse.maven:inventorio-forge-497122:5221630")//Inventorio
     runtimeOnly ("curse.maven:kotlin-for-forge-351264:4983659")//KotlinForge
     implementation fg.deobf("curse.maven:travelers-backpack-321117:5764972")//travelers-backpack
+    compileOnly fg.deobf("curse.maven:quark-243121:5594847")//quark
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

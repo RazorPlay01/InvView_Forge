@@ -1,6 +1,8 @@
 package net.razorplay.invview_forge.container;
 
+import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -8,7 +10,9 @@ import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.razorplay.invview_forge.InvView_Forge;
+import org.violetmoon.quark.addons.oddities.item.BackpackItem;
 
 import java.util.ArrayList;
 import java.util.List;

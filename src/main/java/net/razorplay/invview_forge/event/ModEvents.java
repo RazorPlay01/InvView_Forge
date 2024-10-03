@@ -8,10 +8,7 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.server.command.ConfigCommand;
 import net.razorplay.invview_forge.InvView_Forge;
 import net.razorplay.invview_forge.command.InvViewCommands;
-import net.razorplay.invview_forge.container.PlayerCuriosInventoryScreenHandler;
-import net.razorplay.invview_forge.container.PlayerEnderChestScreenHandler;
-import net.razorplay.invview_forge.container.PlayerInventorioScreenHandler;
-import net.razorplay.invview_forge.container.PlayerInventoryScreenHandler;
+import net.razorplay.invview_forge.container.*;
 
 import java.util.List;
 
@@ -30,7 +27,8 @@ public class ModEvents {
         if (isUniquePlayer(PlayerInventoryScreenHandler.invScreenTargetPlayers, (ServerPlayer) event.getEntity()) ||
                 isUniquePlayer(PlayerEnderChestScreenHandler.endChestScreenTargetPlayers, (ServerPlayer) event.getEntity()) ||
                 isUniquePlayer(PlayerCuriosInventoryScreenHandler.curiosInvScreenTargetPlayers, (ServerPlayer) event.getEntity()) ||
-                isUniquePlayer(PlayerInventorioScreenHandler.inventorioScreenTargetPlayers, (ServerPlayer) event.getEntity())) {
+                isUniquePlayer(PlayerInventorioScreenHandler.inventorioScreenTargetPlayers, (ServerPlayer) event.getEntity()) ||
+                isUniquePlayer(PlayerQuarkBackpackScreenHandler.quarkBackpackScreenTargetPlayers, (ServerPlayer) event.getEntity())) {
 
             List<ServerPlayer> serverPlayers = event.getEntity().getServer().getPlayerList().getPlayers();
 
@@ -38,7 +36,8 @@ public class ModEvents {
                 if (player.containerMenu instanceof PlayerEnderChestScreenHandler ||
                         player.containerMenu instanceof PlayerInventoryScreenHandler ||
                         player.containerMenu instanceof PlayerCuriosInventoryScreenHandler ||
-                        player.containerMenu instanceof PlayerInventorioScreenHandler) {
+                        player.containerMenu instanceof PlayerInventorioScreenHandler ||
+                        player.containerMenu instanceof PlayerQuarkBackpackScreenHandler) {
                     player.closeContainer();
                 }
             });
