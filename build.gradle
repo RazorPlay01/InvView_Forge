@@ -153,9 +153,9 @@ dependencies {
     compileOnly fg.deobf("top.theillusivec4.curios:curios-forge:5.7.2+1.20.1:api")//CuriosApi
 
     //runtimeOnly fg.deobf("maven.modrinth:P0Mu4wcQ:zdWM9d47")//Artifacts
-    //runtimeOnly fg.deobf("maven.modrinth:9s6osm5g:nr1znv5v")//ClothConfig
+    runtimeOnly fg.deobf("maven.modrinth:9s6osm5g:nr1znv5v")//ClothConfig
 
-    implementation fg.deobf("curse.maven:inventorio-forge-497122:5221630")//Inventorio
+    compileOnly fg.deobf("curse.maven:inventorio-forge-497122:5221630")//Inventorio
     runtimeOnly ("curse.maven:kotlin-for-forge-351264:4983659")//KotlinForge
 }
 

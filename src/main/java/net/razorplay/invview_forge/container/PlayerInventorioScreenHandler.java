@@ -4,6 +4,7 @@ import de.rubixdev.inventorio.api.InventorioAPI;
 import de.rubixdev.inventorio.player.PlayerInventoryAddon;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
@@ -17,7 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class PlayerInventorioScreenHandler extends AbstractContainerMenu {
-    public static List<ServerPlayer> inventorioScreenTargetPlayers = new ArrayList<>();
+    public static final List<ServerPlayer> inventorioScreenTargetPlayers = new ArrayList<>();
     private final SimpleContainer inventorioContainer = new SimpleContainer(9 * 2);
     private final ServerPlayer targetPlayer;
     private int totalItems = 0;
@@ -26,7 +27,10 @@ public class PlayerInventorioScreenHandler extends AbstractContainerMenu {
         super(MenuType.GENERIC_9x2, syncId);
         this.targetPlayer = targetPlayer;
 
-        inventorioScreenTargetPlayers.add(targetPlayer);
+        // Añadir el jugador objetivo a la lista de jugadores si no está ya en ella
+        if (!inventorioScreenTargetPlayers.contains(targetPlayer)) {
+            inventorioScreenTargetPlayers.add(targetPlayer);
+        }
 
         PlayerInventoryAddon playerInventoryAddon = InventorioAPI.getInventoryAddon(targetPlayer);
 
@@ -39,7 +43,7 @@ public class PlayerInventorioScreenHandler extends AbstractContainerMenu {
             totalItems = totalItems + 1;
         });
 
-        int rows = 3;
+        int rows = 2;
         int i = (rows - 4) * 18;
         int n;
         int m;
@@ -84,13 +88,7 @@ public class PlayerInventorioScreenHandler extends AbstractContainerMenu {
         saveInv(targetPlayer);
         InvView_Forge.savePlayerData(targetPlayer);
 
-
-        for (int i = 0; i < inventorioScreenTargetPlayers.size(); i++) {
-            if (inventorioScreenTargetPlayers.get(i).equals(targetPlayer)) {
-                inventorioScreenTargetPlayers.remove(i);
-                break;
-            }
-        }
+        inventorioScreenTargetPlayers.removeIf(p -> p.equals(targetPlayer));
         totalItems = 0;
         super.removed(player);
     }

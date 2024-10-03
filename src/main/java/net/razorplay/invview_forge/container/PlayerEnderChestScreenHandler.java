@@ -21,32 +21,35 @@ public class PlayerEnderChestScreenHandler extends AbstractContainerMenu {
         super(menuType, syncId);
         this.targetPlayer = targetPlayer;
 
-        endChestScreenTargetPlayers.add(targetPlayer);
+        // Añadir el jugador objetivo a la lista de jugadores si no está ya en ella
+        if (!endChestScreenTargetPlayers.contains(targetPlayer)) {
+            endChestScreenTargetPlayers.add(targetPlayer);
+        }
 
         switch (targetPlayer.getEnderChestInventory().getContainerSize()) {
             case 9 -> {
                 rows = 1;
-                TE_INVENTORY_SLOT_COUNT = 9;
+                TE_INVENTORY_SLOT_COUNT = 9 * rows;
             }
             case 18 -> {
                 rows = 2;
-                TE_INVENTORY_SLOT_COUNT = 9 * 2;
+                TE_INVENTORY_SLOT_COUNT = 9 * rows;
             }
             case 36 -> {
                 rows = 4;
-                TE_INVENTORY_SLOT_COUNT = 9 * 4;
+                TE_INVENTORY_SLOT_COUNT = 9 * rows;
             }
             case 45 -> {
                 rows = 5;
-                TE_INVENTORY_SLOT_COUNT = 9 * 5;
+                TE_INVENTORY_SLOT_COUNT = 9 * rows;
             }
             case 54 -> {
-                rows =  6;
-                TE_INVENTORY_SLOT_COUNT = 9 * 6;
+                rows = 6;
+                TE_INVENTORY_SLOT_COUNT = 9 * rows;
             }
             default -> {
                 rows = 3;
-                TE_INVENTORY_SLOT_COUNT = 9 * 3;
+                TE_INVENTORY_SLOT_COUNT = 9 * rows;
             }
         }
 

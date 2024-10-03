@@ -22,7 +22,10 @@ public class PlayerInventoryScreenHandler extends AbstractContainerMenu {
         this.targetPlayer = targetPlayer;
         Inventory playerInventory = player.getInventory();
 
-        invScreenTargetPlayers.add(targetPlayer);
+        // Añadir el jugador objetivo a la lista de jugadores si no está ya en ella
+        if (!invScreenTargetPlayers.contains(targetPlayer)) {
+            invScreenTargetPlayers.add(targetPlayer);
+        }
 
         int rows = 5;
         int i = (rows - 4) * 18;

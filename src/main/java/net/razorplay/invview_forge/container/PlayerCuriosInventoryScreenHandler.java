@@ -11,40 +11,47 @@ import net.minecraft.world.item.ItemStack;
 import net.razorplay.invview_forge.InvView_Forge;
 import org.jetbrains.annotations.NotNull;
 import top.theillusivec4.curios.api.CuriosApi;
+import top.theillusivec4.curios.api.type.inventory.ICurioStacksHandler;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 public class PlayerCuriosInventoryScreenHandler extends AbstractContainerMenu {
-    public static List<ServerPlayer> curiosInvScreenTargetPlayers = new ArrayList<>();
-    private final SimpleContainer curiosInv = new SimpleContainer(9 * 3);
+    private static final int INVENTORY_ROWS = 3;
+    private static final int INVENTORY_COLUMNS = 9;
+    private static final int TOTAL_SLOTS = INVENTORY_ROWS * INVENTORY_COLUMNS;
+
+    private final List<Integer> validCuriosSlots = new ArrayList<>();
+    public static final List<ServerPlayer> curiosInvScreenTargetPlayers = new ArrayList<>();
+    private final SimpleContainer curiosInv = new SimpleContainer(TOTAL_SLOTS);
     private final ServerPlayer targetPlayer;
-    private int contador = 0;
-    private final List<List<Object>> twoDimensionalList = new ArrayList<>();
 
     public PlayerCuriosInventoryScreenHandler(int syncId, ServerPlayer player, ServerPlayer targetPlayer) {
         super(MenuType.GENERIC_9x3, syncId);
         this.targetPlayer = targetPlayer;
 
-        curiosInvScreenTargetPlayers.add(targetPlayer);
+        // Añadir el jugador objetivo a la lista de jugadores si no está ya en ella
+        if (!curiosInvScreenTargetPlayers.contains(targetPlayer)) {
+            curiosInvScreenTargetPlayers.add(targetPlayer);
+        }
 
-        // This gives access to the whole inventory
-        CuriosApi.getCuriosInventory(targetPlayer).ifPresent(inv -> inv.getCurios().forEach((key, value) -> {
-            for (int i = 0; i < value.getSlots(); i++) {
-                ItemStack item = value.getStacks().getStackInSlot(i);
-
-                List<Object> row1 = new ArrayList<>();
-                row1.add(key);
-                row1.add(item);
-                twoDimensionalList.add(row1);
-
-                curiosInv.setItem(contador, item);
-                contador = contador + 1;
+        // Cargar los ítems y registrar los slots válidos
+        CuriosApi.getCuriosInventory(targetPlayer).ifPresent(curiosHandler -> {
+            int index = 0;
+            for (ICurioStacksHandler handler : curiosHandler.getCurios().values()) {
+                for (int i = 0; i < handler.getSlots(); i++) {
+                    if (index < TOTAL_SLOTS) {
+                        ItemStack item = handler.getStacks().getStackInSlot(i);
+                        curiosInv.setItem(index, item);
+                        validCuriosSlots.add(index);
+                        index++;
+                    } else {
+                        break;
+                    }
+                }
             }
-        }));
-
+            validCuriosSlots.add(index);
+        });
 
         int rows = 3;
         int i = (rows - 4) * 18;
@@ -68,17 +75,103 @@ public class PlayerCuriosInventoryScreenHandler extends AbstractContainerMenu {
     }
 
     @Override
-    public void clicked(int i, int j, @NotNull ClickType actionType, @NotNull Player playerEntity) {
-        if (i > twoDimensionalList.size() && i < (9 * 3)) {
-            if (actionType == ClickType.QUICK_MOVE) {
-                super.clicked(i, j, actionType, playerEntity);
-            } else {
-                playerEntity.getInventory().setItem(i, ItemStack.EMPTY);
+    public void clicked(int slotId, int button, @NotNull ClickType actionType, @NotNull Player player) {
+        if (slotId >= 0 && slotId < TOTAL_SLOTS) {
+            if (validCuriosSlots.contains(slotId)) {
+                Slot slot = this.slots.get(slotId);
+                ItemStack cursorStack = player.containerMenu.getCarried();
+                ItemStack slotStack = slot.getItem();
+
+                if (actionType == ClickType.PICKUP) {
+                    if (cursorStack.isEmpty() && !slotStack.isEmpty()) {
+                        // Tomar el ítem del slot
+                        player.containerMenu.setCarried(slotStack.copy());
+                        slot.set(ItemStack.EMPTY);
+                    } else if (!cursorStack.isEmpty() && slotStack.isEmpty()) {
+                        // Colocar el ítem en el slot vacío
+                        if (isItemValidForSlot(slotId, cursorStack)) {
+                            slot.set(cursorStack.copy());
+                            player.containerMenu.setCarried(ItemStack.EMPTY);
+                        }
+                    } else if (!cursorStack.isEmpty() && !slotStack.isEmpty()) {
+                        // Intercambiar ítems
+                        if (isItemValidForSlot(slotId, cursorStack)) {
+                            ItemStack temp = slotStack.copy();
+                            slot.set(cursorStack.copy());
+                            player.containerMenu.setCarried(temp);
+                        }
+                    }
+                } else if (actionType == ClickType.QUICK_MOVE) {
+                    if (!slotStack.isEmpty()) {
+                        // Mover el ítem a otro slot disponible
+                        ItemStack remainder = tryMoveItemToOtherSlot(slotStack);
+                        slot.set(remainder);
+                    }
+                }
+
+                saveCuriosInv(targetPlayer);
             }
+            // Si el slot no es válido, no hacemos nada
         } else {
-            super.clicked(i, j, actionType, playerEntity);
+            super.clicked(slotId, button, actionType, player);
         }
+    }
+
+    private boolean isItemValidForSlot(int slotId, ItemStack itemStack) {
+        // Implementa la lógica para verificar si el ítem es válido para el slot de curios
+        // Puedes usar CuriosApi para verificar la compatibilidad
+        return true; // Cambia esto según tus necesidades
+    }
+
+    private ItemStack tryMoveItemToOtherSlot(ItemStack itemStack) {
+        // Intenta mover el ítem a otro slot disponible en el inventario de curios
+        for (int i = 0; i < TOTAL_SLOTS; i++) {
+            Slot targetSlot = this.slots.get(i);
+            if (targetSlot.getItem().isEmpty() && isItemValidForSlot(i, itemStack)) {
+                targetSlot.set(itemStack.copy());
+                return ItemStack.EMPTY;
+            }
+        }
+
+        // Si no se pudo mover dentro del inventario de curios, intenta moverlo al inventario del jugador
+        ItemStack remainingStack = itemStack.copy();
+        if (moveItemStackTo(remainingStack, TOTAL_SLOTS, this.slots.size(), false)) {
+            if (remainingStack.isEmpty()) {
+                return ItemStack.EMPTY;
+            }
+        }
+        return remainingStack;
+    }
+
+    public void saveCuriosInv(ServerPlayer targetPlayer) {
+        // Obtener el inventario de curios y sincronizarlo con la instancia local
+        CuriosApi.getCuriosInventory(targetPlayer).ifPresent(curiosHandler -> {
+            int slotIndex = 0;
+            for (ICurioStacksHandler handler : curiosHandler.getCurios().values()) {
+                for (int i = 0; i < handler.getSlots(); i++) {
+                    if (slotIndex < TOTAL_SLOTS) {
+                        // Actualiza cada slot del inventario de curios del jugador objetivo
+                        ItemStack itemStack = curiosInv.getItem(slotIndex);
+                        handler.getStacks().setStackInSlot(i, itemStack);
+                        slotIndex++;
+                    } else {
+                        break;  // Evitar sobrepasar el tamaño del inventario
+                    }
+                }
+            }
+        });
+    }
+
+    @Override
+    public void removed(@NotNull Player player) {
+        // Guardar el inventario de curios antes de salir
         saveCuriosInv(targetPlayer);
+        InvView_Forge.savePlayerData(targetPlayer);
+
+        // Eliminar al jugador de la lista de jugadores objetivo
+        curiosInvScreenTargetPlayers.remove(targetPlayer);
+
+        super.removed(player);
     }
 
     @Override
@@ -87,103 +180,63 @@ public class PlayerCuriosInventoryScreenHandler extends AbstractContainerMenu {
     }
 
     @Override
-    public void removed(@NotNull Player player) {
-        saveCuriosInv(targetPlayer);
-        InvView_Forge.savePlayerData(targetPlayer);
-
-
-        for (int i = 0; i < curiosInvScreenTargetPlayers.size(); i++) {
-            if (curiosInvScreenTargetPlayers.get(i).equals(targetPlayer)) {
-                curiosInvScreenTargetPlayers.remove(i);
-                break;
-            }
-        }
-
-        super.removed(player);
-    }
-
-    public void saveCuriosInv(ServerPlayer targetPlayer) {
-        int contador = 0;
-        for (List<Object> row : twoDimensionalList) {
-            String string = (String) row.get(0); // Obtener el string de la lista
-
-            List<Object> row1 = new ArrayList<>();
-            row1.add(string);
-            row1.add(curiosInv.getItem(contador));
-            twoDimensionalList.set(contador, row1);
-
-            contador = contador + 1;
-        }
-        this.contador = 0;
-
-        AtomicReference<String> prevString = new AtomicReference<>("");
-        AtomicInteger contador2 = new AtomicInteger();
-        CuriosApi.getCuriosInventory(targetPlayer).ifPresent(inv -> inv.getCurios().forEach((key, value) -> {
-            for (List<Object> row : twoDimensionalList) {
-                String string = (String) row.get(0);
-                ItemStack itemStack = (ItemStack) row.get(1);
-
-                if (prevString.get().equals(string)) {
-                    contador2.set(contador2.get() + 1);
-                } else {
-                    contador2.set(0);
-                }
-
-                if (key.equals(string)) {
-                    value.getStacks().setStackInSlot(contador2.get(), itemStack);
-                }
-                prevString.set(string);
-            }
-        }));
-    }
-
-    // CREDIT GOES TO: diesieben07 | https://github.com/diesieben07/SevenCommons
-    // must assign a slot number to each of the slots used by the GUI.
-    // For this container, we can see both the tile inventory's slots as well as the player inventory slots and the hotbar.
-    // Each time we add a Slot to the container, it automatically increases the slotIndex, which means
-    //  0 - 8 = hotbar slots (which will map to the InventoryPlayer slot numbers 0 - 8)
-    //  9 - 35 = player inventory slots (which map to the InventoryPlayer slot numbers 9 - 35)
-    //  36 - 44 = TileInventory slots, which map to our TileEntity slot numbers 0 - 8)
-    private static final int HOTBAR_SLOT_COUNT = 9;
-    private static final int PLAYER_INVENTORY_ROW_COUNT = 3;
-    private static final int PLAYER_INVENTORY_COLUMN_COUNT = 9;
-    private static final int PLAYER_INVENTORY_SLOT_COUNT = PLAYER_INVENTORY_COLUMN_COUNT * PLAYER_INVENTORY_ROW_COUNT;
-    private static final int VANILLA_SLOT_COUNT = HOTBAR_SLOT_COUNT + PLAYER_INVENTORY_SLOT_COUNT;
-    private static final int VANILLA_FIRST_SLOT_INDEX = 0;
-    private static final int TE_INVENTORY_FIRST_SLOT_INDEX = VANILLA_FIRST_SLOT_INDEX + VANILLA_SLOT_COUNT;
-
-    // THIS YOU HAVE TO DEFINE!
-    private static final int TE_INVENTORY_SLOT_COUNT = 9 * 3;  // must be the number of slots you have!
-
-    @Override
     public @NotNull ItemStack quickMoveStack(@NotNull Player playerIn, int index) {
         Slot sourceSlot = slots.get(index);
-        if (sourceSlot == null || !sourceSlot.hasItem()) return ItemStack.EMPTY;  //EMPTY_ITEM
+        if (sourceSlot == null || !sourceSlot.hasItem()) return ItemStack.EMPTY;
         ItemStack sourceStack = sourceSlot.getItem();
         ItemStack copyOfSourceStack = sourceStack.copy();
 
-        // Check if the slot clicked is one of the vanilla container slots
-        if (index < VANILLA_FIRST_SLOT_INDEX + VANILLA_SLOT_COUNT) {
-            // This is a vanilla container slot so merge the stack into the tile inventory
-            if (!moveItemStackTo(sourceStack, TE_INVENTORY_FIRST_SLOT_INDEX, TE_INVENTORY_FIRST_SLOT_INDEX
-                    + TE_INVENTORY_SLOT_COUNT, false)) {
-                return ItemStack.EMPTY;  // EMPTY_ITEM
-            }
-        } else if (index < TE_INVENTORY_FIRST_SLOT_INDEX + TE_INVENTORY_SLOT_COUNT) {
-            // This is a TE slot so merge the stack into the players inventory
-            if (!moveItemStackTo(sourceStack, VANILLA_FIRST_SLOT_INDEX, VANILLA_FIRST_SLOT_INDEX + VANILLA_SLOT_COUNT, false)) {
+        // Define el rango de slots para el inventario de curios
+        int curiosFirstSlot = 0;
+        int curiosLastSlot = TOTAL_SLOTS - 1;
+
+        // Define el rango de slots para el inventario del jugador
+        int playerFirstSlot = TOTAL_SLOTS;
+        int playerLastSlot = slots.size() - 1;
+
+        if (index >= curiosFirstSlot && index <= curiosLastSlot) {
+            // El slot fuente está en el inventario de curios
+            // Intenta mover al inventario del jugador
+            if (!this.moveItemStackTo(sourceStack, playerFirstSlot, playerLastSlot + 1, false)) {
                 return ItemStack.EMPTY;
+            }
+        } else if (index >= playerFirstSlot && index <= playerLastSlot) {
+            // El slot fuente está en el inventario del jugador
+            // Intenta mover a un slot válido del inventario de curios
+            boolean moved = false;
+            for (int validSlot : validCuriosSlots) {
+                if (isItemValidForSlot(validSlot, sourceStack) && this.moveItemStackTo(sourceStack, validSlot, validSlot + 1, false)) {
+                    moved = true;
+                    break;
+                }
+            }
+            if (!moved) {
+                // Si no se pudo mover a un slot de curios, intenta mover a otra parte del inventario del jugador
+                if (index >= playerFirstSlot && index < playerLastSlot - 9) {
+                    if (!this.moveItemStackTo(sourceStack, playerLastSlot - 8, playerLastSlot + 1, false)) {
+                        return ItemStack.EMPTY;
+                    }
+                } else if (index >= playerLastSlot - 8 && index <= playerLastSlot) {
+                    if (!this.moveItemStackTo(sourceStack, playerFirstSlot, playerLastSlot - 9, false)) {
+                        return ItemStack.EMPTY;
+                    }
+                }
             }
         } else {
             System.out.println("Invalid slotIndex:" + index);
             return ItemStack.EMPTY;
         }
-        // If stack size == 0 (the entire stack was moved) set slot contents to null
-        if (sourceStack.getCount() == 0) {
+
+        if (sourceStack.isEmpty()) {
             sourceSlot.set(ItemStack.EMPTY);
         } else {
             sourceSlot.setChanged();
         }
+
+        if (sourceStack.getCount() == copyOfSourceStack.getCount()) {
+            return ItemStack.EMPTY;
+        }
+
         sourceSlot.onTake(playerIn, sourceStack);
         return copyOfSourceStack;
     }
