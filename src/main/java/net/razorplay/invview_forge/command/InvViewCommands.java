@@ -5,6 +5,9 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.serialization.Dynamic;
+import com.tiviacz.travelersbackpack.capability.CapabilityUtils;
+import com.tiviacz.travelersbackpack.inventory.TravelersBackpackContainer;
+import com.tiviacz.travelersbackpack.util.Reference;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.GameProfileArgument;
@@ -19,6 +22,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.network.NetworkHooks;
@@ -48,9 +52,31 @@ public class InvViewCommands {
                                 .then(Commands.argument("target", GameProfileArgument.gameProfile())
                                         .executes(context -> executeInventorioCheck(context, (ServerPlayer) context.getSource().getEntity()))
                                 ) : Commands.literal(""))
+                ).then((ModList.get().isLoaded("travelersbackpack") ?
+                        Commands.literal("travelersbackpack")
+                                .then(Commands.argument("target", GameProfileArgument.gameProfile())
+                                        .executes(context -> executeTravelersBackPackCheck(context, (ServerPlayer) context.getSource().getEntity()))
+                                ) : Commands.literal(""))
                 )
         );
     }
+
+
+    private int executeTravelersBackPackCheck(CommandContext<CommandSourceStack> context, ServerPlayer entity) throws CommandSyntaxException {
+        ServerPlayer targetPlayer = getRequestedPlayer(context);
+        if (CapabilityUtils.isWearingBackpack(targetPlayer)) {
+            if (!context.getSource().getLevel().isClientSide) {
+                NetworkHooks.openScreen(entity, CapabilityUtils.getBackpackInv(targetPlayer), (packetBuffer) -> {
+                    packetBuffer.writeByte(Reference.WEARABLE_SCREEN_ID);
+                });
+            }
+        } else {
+            context.getSource().getEntity().sendSystemMessage(Component.literal("The player does not have a currently equipped backpack."));
+        }
+        return 1;
+    }
+
+
     private int executeInventorioCheck(CommandContext<CommandSourceStack> context, ServerPlayer player) throws CommandSyntaxException {
         ServerPlayer targetPlayer = getRequestedPlayer(context);
 
