@@ -6,7 +6,6 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.serialization.Dynamic;
 import com.tiviacz.travelersbackpack.capability.CapabilityUtils;
-import com.tiviacz.travelersbackpack.inventory.TravelersBackpackContainer;
 import com.tiviacz.travelersbackpack.util.Reference;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -32,74 +31,73 @@ import org.jetbrains.annotations.NotNull;
 import org.violetmoon.quark.addons.oddities.item.BackpackItem;
 
 public class InvViewCommands {
+    private static final String TARGET_ID = "target";
+    private static final String CURIOS_ID = "curios";
+
     public InvViewCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("view").requires((player) -> player.hasPermission(2))
+        dispatcher.register(Commands.literal("view").requires(player -> player.hasPermission(2))
                 .then(Commands.literal("inv")
-                        .then(Commands.argument("target", GameProfileArgument.gameProfile())
+                        .then(Commands.argument(TARGET_ID, GameProfileArgument.gameProfile())
                                 .executes(context -> executeInventoryCheck(context, (ServerPlayer) context.getSource().getEntity()))))
                 .then(Commands.literal("echest")
-                        .then(Commands.argument("target", GameProfileArgument.gameProfile())
+                        .then(Commands.argument(TARGET_ID, GameProfileArgument.gameProfile())
                                 .executes(context -> executeEnderChestCheck(context, (ServerPlayer) context.getSource().getEntity()))))
-                .then((ModList.get().isLoaded("curios") ?
-                        Commands.literal("curios")
-                                .then(Commands.argument("target", GameProfileArgument.gameProfile())
+                .then((ModList.get().isLoaded(CURIOS_ID) ?
+                        Commands.literal(CURIOS_ID)
+                                .then(Commands.argument(TARGET_ID, GameProfileArgument.gameProfile())
                                         .executes(context -> executeCuriosCheck(context, (ServerPlayer) context.getSource().getEntity()))
                                 ) : Commands.literal(""))
                 )
                 .then((ModList.get().isLoaded("inventorio") ?
                         Commands.literal("inventorio")
-                                .then(Commands.argument("target", GameProfileArgument.gameProfile())
+                                .then(Commands.argument(TARGET_ID, GameProfileArgument.gameProfile())
                                         .executes(context -> executeInventorioCheck(context, (ServerPlayer) context.getSource().getEntity()))
                                 ) : Commands.literal(""))
                 ).then((ModList.get().isLoaded("travelersbackpack") ?
                         Commands.literal("travelersbackpack")
-                                .then(Commands.argument("target", EntityArgument.player())
-                                        .executes(context -> executeTravelersBackPackCheck(context, EntityArgument.getPlayer(context, "target")))
+                                .then(Commands.argument(TARGET_ID, EntityArgument.player())
+                                        .executes(context -> executeTravelersBackPackCheck(context, EntityArgument.getPlayer(context, TARGET_ID)))
                                 ) : Commands.literal(""))
                 ).then((ModList.get().isLoaded("quark") ?
                         Commands.literal("quark-backpack")
-                                .then(Commands.argument("target", EntityArgument.player())
-                                        .executes(context -> executeQuarkBackPackCheck(context, EntityArgument.getPlayer(context, "target")))
+                                .then(Commands.argument(TARGET_ID, EntityArgument.player())
+                                        .executes(context -> executeQuarkBackPackCheck(context, EntityArgument.getPlayer(context, TARGET_ID)))
                                 ) : Commands.literal(""))
                 )
         );
     }
 
-    private int executeQuarkBackPackCheck(CommandContext<CommandSourceStack> context, ServerPlayer targetPlayer) throws CommandSyntaxException {
-        if (ModList.get().isLoaded("quark")) {
-            if (targetPlayer.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof BackpackItem) {
-                boolean canOpen = true;
+    private int executeQuarkBackPackCheck(CommandContext<CommandSourceStack> context, ServerPlayer targetPlayer) {
+        if (targetPlayer.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof BackpackItem) {
+            boolean canOpen = true;
 
-                if (!PlayerQuarkBackpackScreenHandler.quarkBackpackScreenTargetPlayers.isEmpty()) {
-                    for (int i = 0; i < PlayerQuarkBackpackScreenHandler.quarkBackpackScreenTargetPlayers.size(); i++) {
-                        if (PlayerQuarkBackpackScreenHandler.quarkBackpackScreenTargetPlayers.get(i).getDisplayName().equals(targetPlayer.getDisplayName())) {
-                            canOpen = false;
-                            break;
-                        }
+            if (!PlayerQuarkBackpackScreenHandler.quarkBackpackScreenTargetPlayers.isEmpty()) {
+                for (int i = 0; i < PlayerQuarkBackpackScreenHandler.quarkBackpackScreenTargetPlayers.size(); i++) {
+                    if (PlayerQuarkBackpackScreenHandler.quarkBackpackScreenTargetPlayers.get(i).getDisplayName().equals(targetPlayer.getDisplayName())) {
+                        canOpen = false;
+                        break;
                     }
                 }
-                if (canOpen) {
-                    MenuProvider screenHandlerFactory = new MenuProvider() {
-                        @Override
-                        public @NotNull Component getDisplayName() {
-                            return targetPlayer.getDisplayName();
-                        }
+            }
+            if (canOpen) {
+                MenuProvider screenHandlerFactory = new MenuProvider() {
+                    @Override
+                    public @NotNull Component getDisplayName() {
+                        return targetPlayer.getDisplayName();
+                    }
 
-                        @Override
-                        public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player_) {
-                            return new PlayerQuarkBackpackScreenHandler(i, (ServerPlayer) context.getSource().getEntity(), targetPlayer);
-                        }
-                    };
+                    @Override
+                    public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player1) {
+                        return new PlayerQuarkBackpackScreenHandler(i, (ServerPlayer) context.getSource().getEntity(), targetPlayer);
+                    }
+                };
 
-                    NetworkHooks.openScreen((ServerPlayer) context.getSource().getEntity(), screenHandlerFactory);
-                } else {
-                    context.getSource().sendFailure(Component.literal("ERROR: The quark backpack container is already being used by another player."));
-                }
+                NetworkHooks.openScreen((ServerPlayer) context.getSource().getEntity(), screenHandlerFactory);
             } else {
-                context.getSource().getEntity().sendSystemMessage(Component.literal("The player does not have a currently equipped backpack."));
+                context.getSource().sendFailure(Component.literal("ERROR: The quark backpack container is already being used by another player."));
             }
         } else {
-            context.getSource().sendFailure(Component.literal("ERROR: Quark dependency not found!"));
+            context.getSource().getEntity().sendSystemMessage(Component.literal("The player does not have a currently equipped backpack."));
         }
         return 1;
     }
@@ -119,47 +117,41 @@ public class InvViewCommands {
 
     private int executeInventorioCheck(CommandContext<CommandSourceStack> context, ServerPlayer player) throws CommandSyntaxException {
         ServerPlayer targetPlayer = getRequestedPlayer(context);
+        boolean canOpen = true;
 
-        if (ModList.get().isLoaded("inventorio")) {
-            boolean canOpen = true;
-
-            if (!PlayerInventorioScreenHandler.inventorioScreenTargetPlayers.isEmpty()) {
-                for (int i = 0; i < PlayerInventorioScreenHandler.inventorioScreenTargetPlayers.size(); i++) {
-                    if (PlayerInventorioScreenHandler.inventorioScreenTargetPlayers.get(i).getDisplayName().equals(targetPlayer.getDisplayName())) {
-                        canOpen = false;
-                        break;
-                    }
+        if (!PlayerInventorioScreenHandler.inventorioScreenTargetPlayers.isEmpty()) {
+            for (int i = 0; i < PlayerInventorioScreenHandler.inventorioScreenTargetPlayers.size(); i++) {
+                if (PlayerInventorioScreenHandler.inventorioScreenTargetPlayers.get(i).getDisplayName().equals(targetPlayer.getDisplayName())) {
+                    canOpen = false;
+                    break;
                 }
             }
-            if (canOpen) {
-                MenuProvider screenHandlerFactory = new MenuProvider() {
-                    @Override
-                    public @NotNull Component getDisplayName() {
-                        return targetPlayer.getDisplayName();
-                    }
-
-                    @Override
-                    public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player_) {
-                        return new PlayerInventorioScreenHandler(i, player, targetPlayer);
-
-                    }
-                };
-
-                NetworkHooks.openScreen(player, screenHandlerFactory);
-            } else {
-                context.getSource().sendFailure(Component.literal("ERROR: The inventorio inventory container is already being used by another player."));
-            }
-        } else {
-            context.getSource().sendFailure(Component.literal("ERROR: Inventorio dependency not found!"));
         }
+        if (canOpen) {
+            MenuProvider screenHandlerFactory = new MenuProvider() {
+                @Override
+                public @NotNull Component getDisplayName() {
+                    return targetPlayer.getDisplayName();
+                }
 
+                @Override
+                public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player1) {
+                    return new PlayerInventorioScreenHandler(i, player, targetPlayer);
+
+                }
+            };
+
+            NetworkHooks.openScreen(player, screenHandlerFactory);
+        } else {
+            context.getSource().sendFailure(Component.literal("ERROR: The inventorio inventory container is already being used by another player."));
+        }
         return 1;
     }
 
     private int executeCuriosCheck(CommandContext<CommandSourceStack> context, ServerPlayer player) throws CommandSyntaxException {
         ServerPlayer targetPlayer = getRequestedPlayer(context);
 
-        if (ModList.get().isLoaded("curios")) {
+        if (ModList.get().isLoaded(CURIOS_ID)) {
             boolean canOpen = true;
 
             if (!PlayerCuriosInventoryScreenHandler.curiosInvScreenTargetPlayers.isEmpty()) {
@@ -178,7 +170,7 @@ public class InvViewCommands {
                     }
 
                     @Override
-                    public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player_) {
+                    public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player1) {
                         return new PlayerCuriosInventoryScreenHandler(i, player, targetPlayer);
 
                     }
@@ -215,7 +207,7 @@ public class InvViewCommands {
                 }
 
                 @Override
-                public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player_) {
+                public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player1) {
                     MenuType menuType = switch (targetPlayer.getEnderChestInventory().getContainerSize()) {
                         case 9 -> MenuType.GENERIC_9x1;
                         case 18 -> MenuType.GENERIC_9x2;
@@ -258,7 +250,7 @@ public class InvViewCommands {
                 }
 
                 @Override
-                public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player_) {
+                public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player1) {
                     return new PlayerInventoryScreenHandler(i, player, targetPlayer);
 
                 }
@@ -276,7 +268,7 @@ public class InvViewCommands {
             throws CommandSyntaxException {
         MinecraftServer minecraftServer = context.getSource().getServer();
 
-        GameProfile requestedProfile = GameProfileArgument.getGameProfiles(context, "target").iterator().next();
+        GameProfile requestedProfile = GameProfileArgument.getGameProfiles(context, TARGET_ID).iterator().next();
         ServerPlayer requestedPlayer = minecraftServer.getPlayerList().getPlayerByName(requestedProfile.getName());
 
         if (requestedPlayer == null) {
