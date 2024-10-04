@@ -10,6 +10,7 @@ import com.tiviacz.travelersbackpack.inventory.TravelersBackpackContainer;
 import com.tiviacz.travelersbackpack.util.Reference;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.GameProfileArgument;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
@@ -23,14 +24,12 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.MenuType;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.network.NetworkHooks;
 import net.razorplay.invview_forge.container.*;
 import org.jetbrains.annotations.NotNull;
 import org.violetmoon.quark.addons.oddities.item.BackpackItem;
-import org.violetmoon.quark.base.Quark;
 
 public class InvViewCommands {
     public InvViewCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
@@ -54,21 +53,19 @@ public class InvViewCommands {
                                 ) : Commands.literal(""))
                 ).then((ModList.get().isLoaded("travelersbackpack") ?
                         Commands.literal("travelersbackpack")
-                                .then(Commands.argument("target", GameProfileArgument.gameProfile())
-                                        .executes(context -> executeTravelersBackPackCheck(context, (ServerPlayer) context.getSource().getEntity()))
+                                .then(Commands.argument("target", EntityArgument.player())
+                                        .executes(context -> executeTravelersBackPackCheck(context, EntityArgument.getPlayer(context, "target")))
                                 ) : Commands.literal(""))
                 ).then((ModList.get().isLoaded("quark") ?
                         Commands.literal("quark-backpack")
-                                .then(Commands.argument("target", GameProfileArgument.gameProfile())
-                                        .executes(context -> executeQuarkBackPackCheck(context, (ServerPlayer) context.getSource().getEntity()))
+                                .then(Commands.argument("target", EntityArgument.player())
+                                        .executes(context -> executeQuarkBackPackCheck(context, EntityArgument.getPlayer(context, "target")))
                                 ) : Commands.literal(""))
                 )
         );
     }
 
-    private int executeQuarkBackPackCheck(CommandContext<CommandSourceStack> context, ServerPlayer player) throws CommandSyntaxException {
-        ServerPlayer targetPlayer = getRequestedPlayer(context);
-
+    private int executeQuarkBackPackCheck(CommandContext<CommandSourceStack> context, ServerPlayer targetPlayer) throws CommandSyntaxException {
         if (ModList.get().isLoaded("quark")) {
             if (targetPlayer.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof BackpackItem) {
                 boolean canOpen = true;
@@ -90,12 +87,11 @@ public class InvViewCommands {
 
                         @Override
                         public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player_) {
-                            return new PlayerQuarkBackpackScreenHandler(i, player, targetPlayer);
-
+                            return new PlayerQuarkBackpackScreenHandler(i, (ServerPlayer) context.getSource().getEntity(), targetPlayer);
                         }
                     };
 
-                    NetworkHooks.openScreen(player, screenHandlerFactory);
+                    NetworkHooks.openScreen((ServerPlayer) context.getSource().getEntity(), screenHandlerFactory);
                 } else {
                     context.getSource().sendFailure(Component.literal("ERROR: The quark backpack container is already being used by another player."));
                 }
@@ -109,11 +105,10 @@ public class InvViewCommands {
     }
 
 
-    private int executeTravelersBackPackCheck(CommandContext<CommandSourceStack> context, ServerPlayer entity) throws CommandSyntaxException {
-        ServerPlayer targetPlayer = getRequestedPlayer(context);
+    private int executeTravelersBackPackCheck(CommandContext<CommandSourceStack> context, ServerPlayer targetPlayer) {
         if (CapabilityUtils.isWearingBackpack(targetPlayer)) {
             if (!context.getSource().getLevel().isClientSide) {
-                NetworkHooks.openScreen(entity, CapabilityUtils.getBackpackInv(targetPlayer), packetBuffer -> packetBuffer.writeByte(Reference.WEARABLE_SCREEN_ID));
+                NetworkHooks.openScreen((ServerPlayer) context.getSource().getEntity(), CapabilityUtils.getBackpackInv(targetPlayer), packetBuffer -> packetBuffer.writeByte(Reference.WEARABLE_SCREEN_ID));
             }
         } else {
             context.getSource().getEntity().sendSystemMessage(Component.literal("The player does not have a currently equipped backpack."));
