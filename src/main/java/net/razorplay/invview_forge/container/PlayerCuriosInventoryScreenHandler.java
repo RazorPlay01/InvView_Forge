@@ -3,10 +3,7 @@ package net.razorplay.invview_forge.container;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ClickType;
-import net.minecraft.world.inventory.MenuType;
-import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.inventory.*;
 import net.minecraft.world.item.ItemStack;
 import net.razorplay.invview_forge.InvView_Forge;
 import org.jetbrains.annotations.NotNull;
@@ -17,17 +14,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class PlayerCuriosInventoryScreenHandler extends AbstractContainerMenu {
-    private static final int INVENTORY_ROWS = 3;
-    private static final int INVENTORY_COLUMNS = 9;
-    private static final int TOTAL_SLOTS = INVENTORY_ROWS * INVENTORY_COLUMNS;
+    private int inventoryRows = 1;
+    private int totalSlots;
 
     private final List<Integer> validCuriosSlots = new ArrayList<>();
     public static final List<ServerPlayer> curiosInvScreenTargetPlayers = new ArrayList<>();
-    private final SimpleContainer curiosInv = new SimpleContainer(TOTAL_SLOTS);
+    private final SimpleContainer curiosInv;
     private final ServerPlayer targetPlayer;
 
-    public PlayerCuriosInventoryScreenHandler(int syncId, ServerPlayer player, ServerPlayer targetPlayer) {
-        super(MenuType.GENERIC_9x3, syncId);
+    public PlayerCuriosInventoryScreenHandler(MenuType<ChestMenu> menuType, int syncId, ServerPlayer player, ServerPlayer targetPlayer) {
+        super(menuType, syncId);
+        setInventoryRows(menuType);
+        this.curiosInv = new SimpleContainer(totalSlots);
         this.targetPlayer = targetPlayer;
 
         // Añadir el jugador objetivo a la lista de jugadores si no está ya en ella
@@ -40,7 +38,7 @@ public class PlayerCuriosInventoryScreenHandler extends AbstractContainerMenu {
             int index = 0;
             for (ICurioStacksHandler handler : curiosHandler.getCurios().values()) {
                 for (int i = 0; i < handler.getSlots(); i++) {
-                    if (index < TOTAL_SLOTS) {
+                    if (index < totalSlots) {
                         ItemStack item = handler.getStacks().getStackInSlot(i);
                         curiosInv.setItem(index, item);
                         validCuriosSlots.add(index);
@@ -49,11 +47,12 @@ public class PlayerCuriosInventoryScreenHandler extends AbstractContainerMenu {
                         break;
                     }
                 }
+                if (index >= totalSlots) break;
             }
             validCuriosSlots.add(index);
         });
 
-        int rows = 3;
+        int rows = inventoryRows;
         int i = (rows - 4) * 18;
         int n;
         int m;
@@ -74,9 +73,26 @@ public class PlayerCuriosInventoryScreenHandler extends AbstractContainerMenu {
         }
     }
 
+    private void setInventoryRows(MenuType<ChestMenu> menuType) {
+        if (menuType.equals(MenuType.GENERIC_9x1)) {
+            inventoryRows = 1;
+        } else if (menuType.equals(MenuType.GENERIC_9x2)) {
+            inventoryRows = 2;
+        } else if (menuType.equals(MenuType.GENERIC_9x3)) {
+            inventoryRows = 3;
+        } else if (menuType.equals(MenuType.GENERIC_9x4)) {
+            inventoryRows = 4;
+        } else if (menuType.equals(MenuType.GENERIC_9x5)) {
+            inventoryRows = 5;
+        } else if (menuType.equals(MenuType.GENERIC_9x6)) {
+            inventoryRows = 6;
+        }
+        totalSlots = inventoryRows * 9;
+    }
+
     @Override
     public void clicked(int slotId, int button, @NotNull ClickType actionType, @NotNull Player player) {
-        if (slotId >= 0 && slotId < TOTAL_SLOTS) {
+        if (slotId >= 0 && slotId < totalSlots) {
             if (validCuriosSlots.contains(slotId)) {
                 Slot slot = this.slots.get(slotId);
                 ItemStack cursorStack = player.containerMenu.getCarried();
@@ -125,7 +141,7 @@ public class PlayerCuriosInventoryScreenHandler extends AbstractContainerMenu {
 
     private ItemStack tryMoveItemToOtherSlot(ItemStack itemStack) {
         // Intenta mover el ítem a otro slot disponible en el inventario de curios
-        for (int i = 0; i < TOTAL_SLOTS; i++) {
+        for (int i = 0; i < totalSlots; i++) {
             Slot targetSlot = this.slots.get(i);
             if (targetSlot.getItem().isEmpty() && isItemValidForSlot(i, itemStack)) {
                 targetSlot.set(itemStack.copy());
@@ -135,7 +151,7 @@ public class PlayerCuriosInventoryScreenHandler extends AbstractContainerMenu {
 
         // Si no se pudo mover dentro del inventario de curios, intenta moverlo al inventario del jugador
         ItemStack remainingStack = itemStack.copy();
-        if (moveItemStackTo(remainingStack, TOTAL_SLOTS, this.slots.size(), false)) {
+        if (moveItemStackTo(remainingStack, totalSlots, this.slots.size(), false)) {
             if (remainingStack.isEmpty()) {
                 return ItemStack.EMPTY;
             }
@@ -149,7 +165,7 @@ public class PlayerCuriosInventoryScreenHandler extends AbstractContainerMenu {
             int slotIndex = 0;
             for (ICurioStacksHandler handler : curiosHandler.getCurios().values()) {
                 for (int i = 0; i < handler.getSlots(); i++) {
-                    if (slotIndex < TOTAL_SLOTS) {
+                    if (slotIndex < totalSlots) {
                         // Actualiza cada slot del inventario de curios del jugador objetivo
                         ItemStack itemStack = curiosInv.getItem(slotIndex);
                         handler.getStacks().setStackInSlot(i, itemStack);
@@ -188,10 +204,10 @@ public class PlayerCuriosInventoryScreenHandler extends AbstractContainerMenu {
 
         // Define el rango de slots para el inventario de curios
         int curiosFirstSlot = 0;
-        int curiosLastSlot = TOTAL_SLOTS - 1;
+        int curiosLastSlot = totalSlots - 1;
 
         // Define el rango de slots para el inventario del jugador
-        int playerFirstSlot = TOTAL_SLOTS;
+        int playerFirstSlot = totalSlots;
         int playerLastSlot = slots.size() - 1;
 
         if (index >= curiosFirstSlot && index <= curiosLastSlot) {

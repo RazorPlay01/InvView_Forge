@@ -22,6 +22,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraftforge.fml.ModList;
@@ -29,6 +30,10 @@ import net.minecraftforge.network.NetworkHooks;
 import net.razorplay.invview_forge.container.*;
 import org.jetbrains.annotations.NotNull;
 import org.violetmoon.quark.addons.oddities.item.BackpackItem;
+import top.theillusivec4.curios.api.CuriosApi;
+import top.theillusivec4.curios.api.type.inventory.ICurioStacksHandler;
+
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class InvViewCommands {
     private static final String TARGET_ID = "target";
@@ -171,8 +176,27 @@ public class InvViewCommands {
 
                     @Override
                     public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player1) {
-                        return new PlayerCuriosInventoryScreenHandler(i, player, targetPlayer);
-
+                        AtomicInteger index = new AtomicInteger();
+                        CuriosApi.getCuriosInventory(targetPlayer).ifPresent(curiosHandler -> {
+                            for (ICurioStacksHandler handler : curiosHandler.getCurios().values()) {
+                                for (int j = 0; j < handler.getSlots(); j++) {
+                                    index.getAndIncrement();
+                                }
+                            }
+                        });
+                        MenuType<ChestMenu> menuType;
+                        if (index.intValue() <= 9) {
+                            menuType = MenuType.GENERIC_9x1;
+                        } else if (index.intValue() <= 18) {
+                            menuType = MenuType.GENERIC_9x2;
+                        } else if (index.intValue() <= 36) {
+                            menuType = MenuType.GENERIC_9x4;
+                        } else if (index.intValue() <= 45) {
+                            menuType = MenuType.GENERIC_9x5;
+                        } else {
+                            menuType = MenuType.GENERIC_9x6;
+                        }
+                        return new PlayerCuriosInventoryScreenHandler(menuType, i, player, targetPlayer);
                     }
                 };
 
@@ -208,7 +232,7 @@ public class InvViewCommands {
 
                 @Override
                 public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player1) {
-                    MenuType menuType = switch (targetPlayer.getEnderChestInventory().getContainerSize()) {
+                    MenuType<ChestMenu> menuType = switch (targetPlayer.getEnderChestInventory().getContainerSize()) {
                         case 9 -> MenuType.GENERIC_9x1;
                         case 18 -> MenuType.GENERIC_9x2;
                         case 36 -> MenuType.GENERIC_9x4;

@@ -3,6 +3,7 @@ plugins {
     id 'idea'
     id 'maven-publish'
     id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id "com.modrinth.minotaur" version "2.+"
 }
 
 version = mod_version
@@ -219,4 +220,13 @@ publishing {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+}
+modrinth {
+    token = System.getenv("MODRINTH_TOKEN") // Remember to have the MODRINTH_TOKEN environment variable set or else this will fail - just make sure it stays private!
+    projectId = mod_id // This can be the project ID or the slug. Either will work!
+    versionNumber = mod_version // You don't need to set this manually. Will fail if Modrinth has this version already
+    versionType = "release" // This is the default -- can also be `beta` or `alpha`
+    uploadFile = jar // With Loom, this MUST be set to `remapJar` instead of `jar`!
+    gameVersions = ["1.20.1"] // Must be an array, even with only one version
+    loaders = ["forge"] // Must also be an array - no need to specify this if you're using Loom or ForgeGradle
 }
