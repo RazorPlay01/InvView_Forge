@@ -15,14 +15,44 @@ import java.util.List;
 public class PlayerEnderChestScreenHandler extends AbstractContainerMenu {
     public static List<ServerPlayer> endChestScreenTargetPlayers = new ArrayList<>();
     private final ServerPlayer targetPlayer;
+    int rows;
 
-    public PlayerEnderChestScreenHandler(int syncId, ServerPlayer player, ServerPlayer targetPlayer) {
-        super(MenuType.GENERIC_9x3, syncId);
+    public PlayerEnderChestScreenHandler(MenuType menuType, int syncId, ServerPlayer player, ServerPlayer targetPlayer) {
+        super(menuType, syncId);
         this.targetPlayer = targetPlayer;
 
-        endChestScreenTargetPlayers.add(targetPlayer);
+        // Añadir el jugador objetivo a la lista de jugadores si no está ya en ella
+        if (!endChestScreenTargetPlayers.contains(targetPlayer)) {
+            endChestScreenTargetPlayers.add(targetPlayer);
+        }
 
-        int rows = 3;
+        switch (targetPlayer.getEnderChestInventory().getContainerSize()) {
+            case 9 -> {
+                rows = 1;
+                TE_INVENTORY_SLOT_COUNT = 9 * rows;
+            }
+            case 18 -> {
+                rows = 2;
+                TE_INVENTORY_SLOT_COUNT = 9 * rows;
+            }
+            case 36 -> {
+                rows = 4;
+                TE_INVENTORY_SLOT_COUNT = 9 * rows;
+            }
+            case 45 -> {
+                rows = 5;
+                TE_INVENTORY_SLOT_COUNT = 9 * rows;
+            }
+            case 54 -> {
+                rows = 6;
+                TE_INVENTORY_SLOT_COUNT = 9 * rows;
+            }
+            default -> {
+                rows = 3;
+                TE_INVENTORY_SLOT_COUNT = 9 * rows;
+            }
+        }
+
         int i = (rows - 4) * 18;
         int n;
         int m;
@@ -66,7 +96,7 @@ public class PlayerEnderChestScreenHandler extends AbstractContainerMenu {
     private static final int TE_INVENTORY_FIRST_SLOT_INDEX = VANILLA_FIRST_SLOT_INDEX + VANILLA_SLOT_COUNT;
 
     // THIS YOU HAVE TO DEFINE!
-    private static final int TE_INVENTORY_SLOT_COUNT = 9 * 3;  // must be the number of slots you have!
+    private static int TE_INVENTORY_SLOT_COUNT;  // must be the number of slots you have!
 
     @Override
     public @NotNull ItemStack quickMoveStack(@NotNull Player playerIn, int index) {
@@ -106,7 +136,7 @@ public class PlayerEnderChestScreenHandler extends AbstractContainerMenu {
         InvView_Forge.savePlayerData(targetPlayer);
 
         for (int i = 0; i < endChestScreenTargetPlayers.size(); i++) {
-            if (endChestScreenTargetPlayers.get(i).equals(targetPlayer)){
+            if (endChestScreenTargetPlayers.get(i).equals(targetPlayer)) {
                 endChestScreenTargetPlayers.remove(i);
                 break;
             }
