@@ -28,6 +28,7 @@ public class ModEvents {
                 isUniquePlayer(PlayerEnderChestScreenHandler.endChestScreenTargetPlayers, (ServerPlayer) event.getEntity()) ||
                 isUniquePlayer(PlayerCuriosInventoryScreenHandler.curiosInvScreenTargetPlayers, (ServerPlayer) event.getEntity()) ||
                 isUniquePlayer(PlayerInventorioScreenHandler.inventorioScreenTargetPlayers, (ServerPlayer) event.getEntity()) ||
+                isUniquePlayer(PlayerCuriosCosmeticInventoryScreenHandler.curiosCosmeticInvScreenTargetPlayers, (ServerPlayer) event.getEntity()) ||
                 isUniquePlayer(PlayerQuarkBackpackScreenHandler.quarkBackpackScreenTargetPlayers, (ServerPlayer) event.getEntity())) {
 
             List<ServerPlayer> serverPlayers = event.getEntity().getServer().getPlayerList().getPlayers();
@@ -37,6 +38,7 @@ public class ModEvents {
                         player.containerMenu instanceof PlayerInventoryScreenHandler ||
                         player.containerMenu instanceof PlayerCuriosInventoryScreenHandler ||
                         player.containerMenu instanceof PlayerInventorioScreenHandler ||
+                        player.containerMenu instanceof PlayerCuriosCosmeticInventoryScreenHandler ||
                         player.containerMenu instanceof PlayerQuarkBackpackScreenHandler) {
                     player.closeContainer();
                 }

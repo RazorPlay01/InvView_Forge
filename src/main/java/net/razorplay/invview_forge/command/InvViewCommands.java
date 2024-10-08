@@ -51,24 +51,27 @@ public class InvViewCommands {
                         Commands.literal(CURIOS_ID)
                                 .then(Commands.argument(TARGET_ID, GameProfileArgument.gameProfile())
                                         .executes(context -> executeCuriosCheck(context, (ServerPlayer) context.getSource().getEntity()))
-                                ) : Commands.literal(""))
-                )
+                                ) : Commands.literal("")))
+                .then((ModList.get().isLoaded(CURIOS_ID) ?
+                        Commands.literal(CURIOS_ID + "Cosmetic")
+                                .then(Commands.argument(TARGET_ID, GameProfileArgument.gameProfile())
+                                        .executes(context -> executeCuriosCosmeticCheck(context, (ServerPlayer) context.getSource().getEntity()))
+                                ) : Commands.literal("")))
                 .then((ModList.get().isLoaded("inventorio") ?
                         Commands.literal("inventorio")
                                 .then(Commands.argument(TARGET_ID, GameProfileArgument.gameProfile())
                                         .executes(context -> executeInventorioCheck(context, (ServerPlayer) context.getSource().getEntity()))
-                                ) : Commands.literal(""))
-                ).then((ModList.get().isLoaded("travelersbackpack") ?
+                                ) : Commands.literal("")))
+                .then((ModList.get().isLoaded("travelersbackpack") ?
                         Commands.literal("travelersbackpack")
                                 .then(Commands.argument(TARGET_ID, EntityArgument.player())
                                         .executes(context -> executeTravelersBackPackCheck(context, EntityArgument.getPlayer(context, TARGET_ID)))
-                                ) : Commands.literal(""))
-                ).then((ModList.get().isLoaded("quark") ?
+                                ) : Commands.literal("")))
+                .then((ModList.get().isLoaded("quark") ?
                         Commands.literal("quark-backpack")
                                 .then(Commands.argument(TARGET_ID, EntityArgument.player())
                                         .executes(context -> executeQuarkBackPackCheck(context, EntityArgument.getPlayer(context, TARGET_ID)))
-                                ) : Commands.literal(""))
-                )
+                                ) : Commands.literal("")))
         );
     }
 
@@ -203,6 +206,63 @@ public class InvViewCommands {
                 NetworkHooks.openScreen(player, screenHandlerFactory);
             } else {
                 context.getSource().sendFailure(Component.literal("ERROR: The curios inventory container is already being used by another player."));
+            }
+        } else {
+            context.getSource().sendFailure(Component.literal("ERROR: CuriosApi dependency not found!"));
+        }
+
+        return 1;
+    }
+    private int executeCuriosCosmeticCheck(CommandContext<CommandSourceStack> context, ServerPlayer player) throws CommandSyntaxException {
+        ServerPlayer targetPlayer = getRequestedPlayer(context);
+
+        if (ModList.get().isLoaded(CURIOS_ID)) {
+            boolean canOpen = true;
+
+            if (!PlayerCuriosCosmeticInventoryScreenHandler.curiosCosmeticInvScreenTargetPlayers.isEmpty()) {
+                for (int i = 0; i < PlayerCuriosCosmeticInventoryScreenHandler.curiosCosmeticInvScreenTargetPlayers.size(); i++) {
+                    if (PlayerCuriosCosmeticInventoryScreenHandler.curiosCosmeticInvScreenTargetPlayers.get(i).getDisplayName().equals(targetPlayer.getDisplayName())) {
+                        canOpen = false;
+                        break;
+                    }
+                }
+            }
+            if (canOpen) {
+                MenuProvider screenHandlerFactory = new MenuProvider() {
+                    @Override
+                    public @NotNull Component getDisplayName() {
+                        return targetPlayer.getDisplayName();
+                    }
+
+                    @Override
+                    public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player1) {
+                        AtomicInteger index = new AtomicInteger();
+                        CuriosApi.getCuriosInventory(targetPlayer).ifPresent(curiosHandler -> {
+                            for (ICurioStacksHandler handler : curiosHandler.getCurios().values()) {
+                                for (int j = 0; j < handler.getCosmeticStacks().getSlots(); j++) {
+                                    index.getAndIncrement();
+                                }
+                            }
+                        });
+                        MenuType<ChestMenu> menuType;
+                        if (index.intValue() <= 9) {
+                            menuType = MenuType.GENERIC_9x1;
+                        } else if (index.intValue() <= 18) {
+                            menuType = MenuType.GENERIC_9x2;
+                        } else if (index.intValue() <= 36) {
+                            menuType = MenuType.GENERIC_9x4;
+                        } else if (index.intValue() <= 45) {
+                            menuType = MenuType.GENERIC_9x5;
+                        } else {
+                            menuType = MenuType.GENERIC_9x6;
+                        }
+                        return new PlayerCuriosCosmeticInventoryScreenHandler(menuType, i, player, targetPlayer);
+                    }
+                };
+
+                NetworkHooks.openScreen(player, screenHandlerFactory);
+            } else {
+                context.getSource().sendFailure(Component.literal("ERROR: The curios cosmetic inventory container is already being used by another player."));
             }
         } else {
             context.getSource().sendFailure(Component.literal("ERROR: CuriosApi dependency not found!"));
