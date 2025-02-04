@@ -6,50 +6,38 @@ import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.server.command.ConfigCommand;
+import net.razorplay.invview_forge.util.ITargetPlayerContainer;
 import net.razorplay.invview_forge.InvView_Forge;
+import net.razorplay.invview_forge.util.InventoryLockManager;
 import net.razorplay.invview_forge.command.InvViewCommands;
-import net.razorplay.invview_forge.container.*;
 
-import java.util.List;
+import java.util.UUID;
 
 @Mod.EventBusSubscriber(modid = InvView_Forge.MOD_ID)
 public class ModEvents {
+    private ModEvents() {
+        // []
+    }
 
     @SubscribeEvent
     public static void onCommandsRegister(RegisterCommandsEvent event) {
         new InvViewCommands(event.getDispatcher());
-
         ConfigCommand.register(event.getDispatcher());
     }
 
     @SubscribeEvent
     public static void onPlayerJoin(PlayerEvent.PlayerLoggedInEvent event) {
-        if (isUniquePlayer(PlayerInventoryScreenHandler.invScreenTargetPlayers, (ServerPlayer) event.getEntity()) ||
-                isUniquePlayer(PlayerEnderChestScreenHandler.endChestScreenTargetPlayers, (ServerPlayer) event.getEntity()) ||
-                isUniquePlayer(PlayerCuriosInventoryScreenHandler.curiosInvScreenTargetPlayers, (ServerPlayer) event.getEntity()) ||
-                isUniquePlayer(PlayerInventorioScreenHandler.inventorioScreenTargetPlayers, (ServerPlayer) event.getEntity()) ||
-                isUniquePlayer(PlayerCuriosCosmeticInventoryScreenHandler.curiosCosmeticInvScreenTargetPlayers, (ServerPlayer) event.getEntity()) ||
-                isUniquePlayer(PlayerQuarkBackpackScreenHandler.quarkBackpackScreenTargetPlayers, (ServerPlayer) event.getEntity())) {
+        if (event.getEntity() instanceof ServerPlayer joiningPlayer) {
+            UUID joiningPlayerUUID = joiningPlayer.getUUID();
 
-            List<ServerPlayer> serverPlayers = event.getEntity().getServer().getPlayerList().getPlayers();
+            InventoryLockManager.unlockAll(joiningPlayerUUID);
 
-            serverPlayers.forEach(player -> {
-                if (player.containerMenu instanceof PlayerEnderChestScreenHandler ||
-                        player.containerMenu instanceof PlayerInventoryScreenHandler ||
-                        player.containerMenu instanceof PlayerCuriosInventoryScreenHandler ||
-                        player.containerMenu instanceof PlayerInventorioScreenHandler ||
-                        player.containerMenu instanceof PlayerCuriosCosmeticInventoryScreenHandler ||
-                        player.containerMenu instanceof PlayerQuarkBackpackScreenHandler) {
+            event.getEntity().getServer().getPlayerList().getPlayers().forEach(player -> {
+                if (player.containerMenu instanceof ITargetPlayerContainer container &&
+                        container.getTargetPlayer().getUUID().equals(joiningPlayerUUID)) {
                     player.closeContainer();
                 }
             });
         }
     }
-
-    private static boolean isUniquePlayer(List<ServerPlayer> players, ServerPlayer targetPlayer) {
-        return players.stream()
-                .anyMatch(player -> player.getDisplayName().equals(targetPlayer.getDisplayName()));
-    }
-
-
 }

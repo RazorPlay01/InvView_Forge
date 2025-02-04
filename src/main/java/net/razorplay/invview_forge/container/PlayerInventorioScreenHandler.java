@@ -2,9 +2,9 @@ package net.razorplay.invview_forge.container;
 
 import de.rubixdev.inventorio.api.InventorioAPI;
 import de.rubixdev.inventorio.player.PlayerInventoryAddon;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleContainer;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
@@ -12,70 +12,102 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.razorplay.invview_forge.InvView_Forge;
+import net.razorplay.invview_forge.util.ITargetPlayerContainer;
+import net.razorplay.invview_forge.util.InventoryLockManager;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.UUID;
 
-public class PlayerInventorioScreenHandler extends AbstractContainerMenu {
-    public static final List<ServerPlayer> inventorioScreenTargetPlayers = new ArrayList<>();
-    private final SimpleContainer inventorioContainer = new SimpleContainer(9 * 2);
+public class PlayerInventorioScreenHandler extends AbstractContainerMenu implements ITargetPlayerContainer {
+
+    // Constantes para tamaños de inventario
+    private static final int HOTBAR_SLOT_COUNT = 9;
+    private static final int PLAYER_INVENTORY_ROW_COUNT = 3;
+    private static final int PLAYER_INVENTORY_COLUMN_COUNT = 9;
+    private static final int PLAYER_INVENTORY_SLOT_COUNT = PLAYER_INVENTORY_COLUMN_COUNT * PLAYER_INVENTORY_ROW_COUNT;
+    private static final int VANILLA_SLOT_COUNT = HOTBAR_SLOT_COUNT + PLAYER_INVENTORY_SLOT_COUNT;
+    private static final int VANILLA_FIRST_SLOT_INDEX = 0;
+    private static final int TE_INVENTORY_FIRST_SLOT_INDEX = VANILLA_FIRST_SLOT_INDEX + VANILLA_SLOT_COUNT;
+    private static final int TE_INVENTORY_SLOT_COUNT = 9 * 2;  // Tamaño del inventario de Inventorio
+
+    private final SimpleContainer inventorioContainer = new SimpleContainer(TE_INVENTORY_SLOT_COUNT);
     private final ServerPlayer targetPlayer;
+    private final UUID targetPlayerUUID;
     private int totalItems = 0;
 
     public PlayerInventorioScreenHandler(int syncId, ServerPlayer player, ServerPlayer targetPlayer) {
         super(MenuType.GENERIC_9x2, syncId);
         this.targetPlayer = targetPlayer;
+        this.targetPlayerUUID = targetPlayer.getUUID();
 
-        // Añadir el jugador objetivo a la lista de jugadores si no está ya en ella
-        if (!inventorioScreenTargetPlayers.contains(targetPlayer)) {
-            inventorioScreenTargetPlayers.add(targetPlayer);
+        if (!tryLockInventory(player)) {
+            return;
         }
 
+        initializeInventorioContainer();
+        addInventorioSlots();
+        addPlayerInventorySlots(player);
+    }
+
+    private boolean tryLockInventory(ServerPlayer player) {
+        if (!InventoryLockManager.tryLock(targetPlayerUUID, InventoryLockManager.InventoryType.INVENTORIO)) {
+            player.closeContainer();
+            player.displayClientMessage(Component.translatable("inv_view_forge.inventory_in_use.error"), false);
+            return false;
+        }
+        return true;
+    }
+
+    private void initializeInventorioContainer() {
         PlayerInventoryAddon playerInventoryAddon = InventorioAPI.getInventoryAddon(targetPlayer);
 
         playerInventoryAddon.toolBelt.forEach(item -> {
             inventorioContainer.setItem(totalItems, item);
-            totalItems = totalItems + 1;
+            totalItems++;
         });
+
         playerInventoryAddon.utilityBelt.forEach(item -> {
             inventorioContainer.setItem(totalItems, item);
-            totalItems = totalItems + 1;
+            totalItems++;
         });
+    }
 
+    private void addInventorioSlots() {
         int rows = 2;
-        int i = (rows - 4) * 18;
-        int n;
-        int m;
-        for (n = 0; n < rows; ++n) {
-            for (m = 0; m < 9; ++m) {
-                this.addSlot(new Slot(inventorioContainer, m + n * 9, 8 + m * 18, 18 + n * 18));
+        for (int row = 0; row < rows; row++) {
+            for (int col = 0; col < 9; col++) {
+                this.addSlot(new Slot(inventorioContainer, col + row * 9, 8 + col * 18, 18 + row * 18));
+            }
+        }
+    }
+
+    private void addPlayerInventorySlots(ServerPlayer player) {
+        int rows = 2;
+        int yOffset = (rows - 4) * 18;
+
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 9; col++) {
+                this.addSlot(new Slot(player.getInventory(), col + row * 9 + 9, 8 + col * 18, 103 + row * 18 + yOffset));
             }
         }
 
-        for (n = 0; n < 3; ++n) {
-            for (m = 0; m < 9; ++m) {
-                this.addSlot(new Slot(player.getInventory(), m + n * 9 + 9, 8 + m * 18, 103 + n * 18 + i));
-            }
-        }
-
-        for (n = 0; n < 9; ++n) {
-            this.addSlot(new Slot(player.getInventory(), n, 8 + n * 18, 161 + i));
+        for (int col = 0; col < 9; col++) {
+            this.addSlot(new Slot(player.getInventory(), col, 8 + col * 18, 161 + yOffset));
         }
     }
 
     @Override
-    public void clicked(int i, int j, @NotNull ClickType actionType, @NotNull Player playerEntity) {
-        if (i > this.totalItems && i < (9 * 2)) {
+    public void clicked(int slotIndex, int button, @NotNull ClickType actionType, @NotNull Player player) {
+        if (slotIndex > totalItems && slotIndex < TE_INVENTORY_SLOT_COUNT) {
             if (actionType == ClickType.QUICK_MOVE) {
-                super.clicked(i, j, actionType, playerEntity);
+                super.clicked(slotIndex, button, actionType, player);
             } else {
-                playerEntity.getInventory().setItem(i, ItemStack.EMPTY);
+                player.getInventory().setItem(slotIndex, ItemStack.EMPTY);
             }
         } else {
-            super.clicked(i, j, actionType, playerEntity);
+            super.clicked(slotIndex, button, actionType, player);
         }
-        saveInv(targetPlayer);
+        saveInventorio(targetPlayer);
     }
 
     @Override
@@ -85,15 +117,14 @@ public class PlayerInventorioScreenHandler extends AbstractContainerMenu {
 
     @Override
     public void removed(@NotNull Player player) {
-        saveInv(targetPlayer);
+        InventoryLockManager.unlock(targetPlayerUUID, InventoryLockManager.InventoryType.INVENTORIO);
+        saveInventorio(targetPlayer);
         InvView_Forge.savePlayerData(targetPlayer);
-
-        inventorioScreenTargetPlayers.removeIf(p -> p.equals(targetPlayer));
         totalItems = 0;
         super.removed(player);
     }
 
-    public void saveInv(ServerPlayer targetPlayer) {
+    private void saveInventorio(ServerPlayer targetPlayer) {
         PlayerInventoryAddon playerInventoryAddon = InventorioAPI.getInventoryAddon(targetPlayer);
 
         for (int i = 0; i <= 4; i++) {
@@ -103,57 +134,40 @@ public class PlayerInventorioScreenHandler extends AbstractContainerMenu {
         for (int i = 0; i <= 7; i++) {
             playerInventoryAddon.utilityBelt.set(i, inventorioContainer.getItem(i + 5));
         }
-
     }
 
-    // CREDIT GOES TO: diesieben07 | https://github.com/diesieben07/SevenCommons
-    // must assign a slot number to each of the slots used by the GUI.
-    // For this container, we can see both the tile inventory's slots as well as the player inventory slots and the hotbar.
-    // Each time we add a Slot to the container, it automatically increases the slotIndex, which means
-    //  0 - 8 = hotbar slots (which will map to the InventoryPlayer slot numbers 0 - 8)
-    //  9 - 35 = player inventory slots (which map to the InventoryPlayer slot numbers 9 - 35)
-    //  36 - 44 = TileInventory slots, which map to our TileEntity slot numbers 0 - 8)
-    private static final int HOTBAR_SLOT_COUNT = 9;
-    private static final int PLAYER_INVENTORY_ROW_COUNT = 3;
-    private static final int PLAYER_INVENTORY_COLUMN_COUNT = 9;
-    private static final int PLAYER_INVENTORY_SLOT_COUNT = PLAYER_INVENTORY_COLUMN_COUNT * PLAYER_INVENTORY_ROW_COUNT;
-    private static final int VANILLA_SLOT_COUNT = HOTBAR_SLOT_COUNT + PLAYER_INVENTORY_SLOT_COUNT;
-    private static final int VANILLA_FIRST_SLOT_INDEX = 0;
-    private static final int TE_INVENTORY_FIRST_SLOT_INDEX = VANILLA_FIRST_SLOT_INDEX + VANILLA_SLOT_COUNT;
-
-    // THIS YOU HAVE TO DEFINE!
-    private static final int TE_INVENTORY_SLOT_COUNT = 9 * 2;  // must be the number of slots you have!
-
     @Override
-    public @NotNull ItemStack quickMoveStack(@NotNull Player playerIn, int index) {
+    public @NotNull ItemStack quickMoveStack(@NotNull Player player, int index) {
         Slot sourceSlot = slots.get(index);
-        if (sourceSlot == null || !sourceSlot.hasItem()) return ItemStack.EMPTY;  //EMPTY_ITEM
+        if (sourceSlot == null || !sourceSlot.hasItem()) return ItemStack.EMPTY;
+
         ItemStack sourceStack = sourceSlot.getItem();
         ItemStack copyOfSourceStack = sourceStack.copy();
 
-        // Check if the slot clicked is one of the vanilla container slots
         if (index < VANILLA_FIRST_SLOT_INDEX + VANILLA_SLOT_COUNT) {
-            // This is a vanilla container slot so merge the stack into the tile inventory
-            if (!moveItemStackTo(sourceStack, TE_INVENTORY_FIRST_SLOT_INDEX, TE_INVENTORY_FIRST_SLOT_INDEX
-                    + TE_INVENTORY_SLOT_COUNT, false)) {
-                return ItemStack.EMPTY;  // EMPTY_ITEM
+            if (!moveItemStackTo(sourceStack, TE_INVENTORY_FIRST_SLOT_INDEX, TE_INVENTORY_FIRST_SLOT_INDEX + TE_INVENTORY_SLOT_COUNT, false)) {
+                return ItemStack.EMPTY;
             }
         } else if (index < TE_INVENTORY_FIRST_SLOT_INDEX + TE_INVENTORY_SLOT_COUNT) {
-            // This is a TE slot so merge the stack into the players inventory
             if (!moveItemStackTo(sourceStack, VANILLA_FIRST_SLOT_INDEX, VANILLA_FIRST_SLOT_INDEX + VANILLA_SLOT_COUNT, false)) {
                 return ItemStack.EMPTY;
             }
         } else {
-            System.out.println("Invalid slotIndex:" + index);
+            InvView_Forge.LOGGER.info("Invalid slotIndex:{}", index);
             return ItemStack.EMPTY;
         }
-        // If stack size == 0 (the entire stack was moved) set slot contents to null
+
         if (sourceStack.getCount() == 0) {
             sourceSlot.set(ItemStack.EMPTY);
         } else {
             sourceSlot.setChanged();
         }
-        sourceSlot.onTake(playerIn, sourceStack);
+        sourceSlot.onTake(player, sourceStack);
         return copyOfSourceStack;
+    }
+
+    @Override
+    public ServerPlayer getTargetPlayer() {
+        return this.targetPlayer;
     }
 }

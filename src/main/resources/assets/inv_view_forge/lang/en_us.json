@@ -1,0 +1,5 @@
+{
+"inv_view_forge.command.error.inventory_in_use": "ERROR: This inventory is being used by another player!",
+"inv_view_forge.command.error.dependency_not_found": "ERROR: Dependency not found!",
+"inv_view_forge.command.error.player_without_backpack": "ERROR: The player does not have a currently equipped backpack!"
+}

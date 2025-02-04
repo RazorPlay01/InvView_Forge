@@ -150,6 +150,12 @@ repositories {
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
+    compileOnly 'org.projectlombok:lombok:1.18.36'
+    annotationProcessor 'org.projectlombok:lombok:1.18.36'
+
+    testCompileOnly 'org.projectlombok:lombok:1.18.36'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.36'
+
     runtimeOnly fg.deobf("top.theillusivec4.curios:curios-forge:5.10.0+1.20.1")//CuriosForge
     compileOnly fg.deobf("top.theillusivec4.curios:curios-forge:5.10.0+1.20.1:api")//CuriosApi
 
@@ -160,6 +166,7 @@ dependencies {
     runtimeOnly ("curse.maven:kotlin-for-forge-351264:4983659")//KotlinForge
     implementation fg.deobf("curse.maven:travelers-backpack-321117:5764972")//travelers-backpack
     compileOnly fg.deobf("curse.maven:quark-243121:5594847")//quark
+    compileOnly fg.deobf("curse.maven:backpacked-352835:5813547")//backpacked
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.

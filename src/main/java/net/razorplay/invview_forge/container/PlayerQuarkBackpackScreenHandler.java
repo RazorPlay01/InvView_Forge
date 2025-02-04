@@ -1,6 +1,6 @@
 package net.razorplay.invview_forge.container;
 
-import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -16,52 +16,77 @@ import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.ItemStackHandler;
 import net.razorplay.invview_forge.InvView_Forge;
+import net.razorplay.invview_forge.util.ITargetPlayerContainer;
+import net.razorplay.invview_forge.util.InventoryLockManager;
+import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.UUID;
 
-public class PlayerQuarkBackpackScreenHandler extends AbstractContainerMenu {
-    public static final List<ServerPlayer> quarkBackpackScreenTargetPlayers = new ArrayList<>();
+public class PlayerQuarkBackpackScreenHandler extends AbstractContainerMenu implements ITargetPlayerContainer {
+
+    private static final int BACKPACK_ROWS = 3;
+    private static final int BACKPACK_COLUMNS = 9;
+    private static final int PLAYER_INVENTORY_ROWS = 3;
+    private static final int PLAYER_INVENTORY_COLUMNS = 9;
+    private static final int SLOT_SIZE = 18;
+    private static final int PLAYER_INVENTORY_Y_OFFSET = 103;
+    private static final int HOTBAR_Y_OFFSET = 161;
+
     private final ServerPlayer targetPlayer;
-    private final SimpleContainer backpackInv = new SimpleContainer(9 * 3);
-
+    private final UUID targetPlayerUUID;
+    private final SimpleContainer backpackInv = new SimpleContainer(BACKPACK_ROWS * BACKPACK_COLUMNS);
 
     public PlayerQuarkBackpackScreenHandler(int syncId, ServerPlayer player, ServerPlayer targetPlayer) {
         super(MenuType.GENERIC_9x3, syncId);
         this.targetPlayer = targetPlayer;
-        Inventory playerInventory = player.getInventory();
+        this.targetPlayerUUID = targetPlayer.getUUID();
 
-        // Añadir el jugador objetivo a la lista de jugadores si no está ya en ella
-        if (!quarkBackpackScreenTargetPlayers.contains(targetPlayer)) {
-            quarkBackpackScreenTargetPlayers.add(targetPlayer);
+        if (!tryLockInventory(targetPlayerUUID)) {
+            handleInventoryLockFailure(player);
+            return;
         }
 
+        initializeBackpackInventory(targetPlayer);
+        addBackpackSlots();
+        addPlayerInventorySlots(player.getInventory());
+    }
+
+    private boolean tryLockInventory(UUID playerUUID) {
+        return InventoryLockManager.tryLock(playerUUID, InventoryLockManager.InventoryType.QUARK_BACKPACK);
+    }
+
+    private void handleInventoryLockFailure(ServerPlayer player) {
+        player.closeContainer();
+        player.displayClientMessage(Component.translatable("inv_view_forge.inventory_in_use.error"), false);
+    }
+
+    private void initializeBackpackInventory(ServerPlayer targetPlayer) {
         ItemStack backpack = targetPlayer.getItemBySlot(EquipmentSlot.CHEST);
-        LazyOptional<IItemHandler> handlerOpt = backpack.getCapability(ForgeCapabilities.ITEM_HANDLER, (Direction) null);
+        LazyOptional<IItemHandler> handlerOpt = backpack.getCapability(ForgeCapabilities.ITEM_HANDLER, null);
         IItemHandler handler = handlerOpt.orElse(new ItemStackHandler());
+
         for (int i = 0; i < handler.getSlots(); ++i) {
-            ItemStack inStack = handler.getStackInSlot(i);
-            backpackInv.setItem(i, inStack);
+            backpackInv.setItem(i, handler.getStackInSlot(i));
         }
+    }
 
-        int rows = 3;
-        int i = (rows - 4) * 18;
-        int n;
-        int m;
-        for (n = 0; n < rows; ++n) {
-            for (m = 0; m < 9; ++m) {
-                this.addSlot(new Slot(backpackInv, m + n * 9, 8 + m * 18, 18 + n * 18));
+    private void addBackpackSlots() {
+        for (int row = 0; row < BACKPACK_ROWS; ++row) {
+            for (int column = 0; column < BACKPACK_COLUMNS; ++column) {
+                this.addSlot(new Slot(backpackInv, column + row * BACKPACK_COLUMNS, 8 + column * SLOT_SIZE, 18 + row * SLOT_SIZE));
+            }
+        }
+    }
+
+    private void addPlayerInventorySlots(Inventory playerInventory) {
+        for (int row = 0; row < PLAYER_INVENTORY_ROWS; ++row) {
+            for (int column = 0; column < PLAYER_INVENTORY_COLUMNS; ++column) {
+                this.addSlot(new Slot(playerInventory, column + row * PLAYER_INVENTORY_COLUMNS + 9, 8 + column * SLOT_SIZE, PLAYER_INVENTORY_Y_OFFSET + row * SLOT_SIZE));
             }
         }
 
-        for (n = 0; n < 3; ++n) {
-            for (m = 0; m < 9; ++m) {
-                this.addSlot(new Slot(playerInventory, m + n * 9 + 9, 8 + m * 18, 103 + n * 18 + i));
-            }
-        }
-
-        for (n = 0; n < 9; ++n) {
-            this.addSlot(new Slot(playerInventory, n, 8 + n * 18, 161 + i));
+        for (int column = 0; column < PLAYER_INVENTORY_COLUMNS; ++column) {
+            this.addSlot(new Slot(playerInventory, column, 8 + column * SLOT_SIZE, HOTBAR_Y_OFFSET));
         }
     }
 
@@ -71,20 +96,18 @@ public class PlayerQuarkBackpackScreenHandler extends AbstractContainerMenu {
     }
 
     @Override
-    public ItemStack quickMoveStack(Player playerIn, int index) {
+    public ItemStack quickMoveStack(Player player, int index) {
         Slot sourceSlot = slots.get(index);
         if (sourceSlot == null || !sourceSlot.hasItem()) return ItemStack.EMPTY;
+
         ItemStack sourceStack = sourceSlot.getItem();
         ItemStack copyOfSourceStack = sourceStack.copy();
 
-        // Si el slot es del inventario de la mochila
         if (index < backpackInv.getContainerSize()) {
-            // Intenta mover al inventario del jugador
             if (!moveItemStackTo(sourceStack, backpackInv.getContainerSize(), slots.size(), false)) {
                 return ItemStack.EMPTY;
             }
         } else {
-            // Si el slot es del inventario del jugador, intenta mover a la mochila
             if (!moveItemStackTo(sourceStack, 0, backpackInv.getContainerSize(), false)) {
                 return ItemStack.EMPTY;
             }
@@ -100,35 +123,33 @@ public class PlayerQuarkBackpackScreenHandler extends AbstractContainerMenu {
             return ItemStack.EMPTY;
         }
 
-        sourceSlot.onTake(playerIn, sourceStack);
+        sourceSlot.onTake(player, sourceStack);
         return copyOfSourceStack;
     }
 
     @Override
-    public void clicked(int i, int j, ClickType actionType, Player playerEntity) {
-        if (i > backpackInv.getContainerSize() && i < (9 * 3)) {
+    public void clicked(int slotIndex, int button, ClickType actionType, Player player) {
+        if (slotIndex > backpackInv.getContainerSize() && slotIndex < (BACKPACK_ROWS * BACKPACK_COLUMNS)) {
             if (actionType == ClickType.QUICK_MOVE) {
-                super.clicked(i, j, actionType, playerEntity);
+                super.clicked(slotIndex, button, actionType, player);
             } else {
-                playerEntity.getInventory().setItem(i, ItemStack.EMPTY);
+                player.getInventory().setItem(slotIndex, ItemStack.EMPTY);
             }
         } else {
-            super.clicked(i, j, actionType, playerEntity);
+            super.clicked(slotIndex, button, actionType, player);
         }
-        saveBackpackInv(targetPlayer);
+        saveBackpackInventory(targetPlayer);
     }
 
-    public void saveBackpackInv(ServerPlayer targetPlayer) {
+    private void saveBackpackInventory(ServerPlayer targetPlayer) {
         ItemStack backpack = targetPlayer.getItemBySlot(EquipmentSlot.CHEST);
-        LazyOptional<IItemHandler> handlerOpt = backpack.getCapability(ForgeCapabilities.ITEM_HANDLER, (Direction) null);
+        LazyOptional<IItemHandler> handlerOpt = backpack.getCapability(ForgeCapabilities.ITEM_HANDLER, null);
         IItemHandler handler = handlerOpt.orElse(new ItemStackHandler());
 
-        // Primero, limpiamos el inventario de la mochila
         for (int i = 0; i < handler.getSlots(); ++i) {
             handler.extractItem(i, handler.getStackInSlot(i).getCount(), false);
         }
 
-        // Luego, insertamos los items del inventario temporal
         for (int i = 0; i < handler.getSlots(); ++i) {
             ItemStack stack = backpackInv.getItem(i);
             if (!stack.isEmpty()) {
@@ -138,11 +159,15 @@ public class PlayerQuarkBackpackScreenHandler extends AbstractContainerMenu {
     }
 
     @Override
-    public void removed(Player player) {
-        saveBackpackInv(targetPlayer);
+    public void removed(@NotNull Player player) {
+        InventoryLockManager.unlock(targetPlayerUUID, InventoryLockManager.InventoryType.QUARK_BACKPACK);
+        saveBackpackInventory(targetPlayer);
         InvView_Forge.savePlayerData(targetPlayer);
-
-        quarkBackpackScreenTargetPlayers.removeIf(p -> p.equals(targetPlayer));
         super.removed(player);
+    }
+
+    @Override
+    public ServerPlayer getTargetPlayer() {
+        return targetPlayer;
     }
 }

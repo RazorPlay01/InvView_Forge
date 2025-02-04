@@ -1,15 +1,19 @@
 package net.razorplay.invview_forge.command;
 
 import com.mojang.authlib.GameProfile;
+import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.serialization.Dynamic;
+import com.mrcrayfish.backpacked.inventory.BackpackInventory;
+import com.mrcrayfish.backpacked.inventory.BackpackedInventoryAccess;
+import com.mrcrayfish.backpacked.platform.Services;
 import com.tiviacz.travelersbackpack.capability.CapabilityUtils;
 import com.tiviacz.travelersbackpack.util.Reference;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.GameProfileArgument;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
@@ -24,9 +28,11 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.MenuType;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.network.NetworkHooks;
+import net.razorplay.invview_forge.util.InventoryLockManager;
 import net.razorplay.invview_forge.container.*;
 import org.jetbrains.annotations.NotNull;
 import org.violetmoon.quark.addons.oddities.item.BackpackItem;
@@ -35,321 +41,237 @@ import top.theillusivec4.curios.api.type.inventory.ICurioStacksHandler;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.mrcrayfish.backpacked.item.BackpackItem.BACKPACK_TRANSLATION;
+
 public class InvViewCommands {
     private static final String TARGET_ID = "target";
     private static final String CURIOS_ID = "curios";
+    private static final String INVENTORIO_ID = "inventorio";
+    private static final String TRAVELERS_BACKPACK_ID = "travelersbackpack";
+    private static final String QUARK_ID = "quark";
+    private static final String BACKPACKED_ID = "backpacked";
 
     public InvViewCommands(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("view").requires(player -> player.hasPermission(2))
-                .then(Commands.literal("inv")
-                        .then(Commands.argument(TARGET_ID, GameProfileArgument.gameProfile())
-                                .executes(context -> executeInventoryCheck(context, (ServerPlayer) context.getSource().getEntity()))))
-                .then(Commands.literal("echest")
-                        .then(Commands.argument(TARGET_ID, GameProfileArgument.gameProfile())
-                                .executes(context -> executeEnderChestCheck(context, (ServerPlayer) context.getSource().getEntity()))))
-                .then((ModList.get().isLoaded(CURIOS_ID) ?
-                        Commands.literal(CURIOS_ID)
-                                .then(Commands.argument(TARGET_ID, GameProfileArgument.gameProfile())
-                                        .executes(context -> executeCuriosCheck(context, (ServerPlayer) context.getSource().getEntity()))
-                                ) : Commands.literal("")))
-                .then((ModList.get().isLoaded(CURIOS_ID) ?
-                        Commands.literal(CURIOS_ID + "Cosmetic")
-                                .then(Commands.argument(TARGET_ID, GameProfileArgument.gameProfile())
-                                        .executes(context -> executeCuriosCosmeticCheck(context, (ServerPlayer) context.getSource().getEntity()))
-                                ) : Commands.literal("")))
-                .then((ModList.get().isLoaded("inventorio") ?
-                        Commands.literal("inventorio")
-                                .then(Commands.argument(TARGET_ID, GameProfileArgument.gameProfile())
-                                        .executes(context -> executeInventorioCheck(context, (ServerPlayer) context.getSource().getEntity()))
-                                ) : Commands.literal("")))
-                .then((ModList.get().isLoaded("travelersbackpack") ?
-                        Commands.literal("travelersbackpack")
-                                .then(Commands.argument(TARGET_ID, EntityArgument.player())
-                                        .executes(context -> executeTravelersBackPackCheck(context, EntityArgument.getPlayer(context, TARGET_ID)))
-                                ) : Commands.literal("")))
-                .then((ModList.get().isLoaded("quark") ?
-                        Commands.literal("quark-backpack")
-                                .then(Commands.argument(TARGET_ID, EntityArgument.player())
-                                        .executes(context -> executeQuarkBackPackCheck(context, EntityArgument.getPlayer(context, TARGET_ID)))
-                                ) : Commands.literal("")))
+                .then(createCommand("inv", this::executeInventoryCheck))
+                .then(createCommand("echest", this::executeEnderChestCheck))
+                .then(createModCommand(CURIOS_ID, CURIOS_ID, this::executeCuriosCheck))
+                .then(createModCommand(CURIOS_ID, CURIOS_ID + "-cosmetic", this::executeCuriosCosmeticCheck))
+                .then(createModCommand(INVENTORIO_ID, INVENTORIO_ID, this::executeInventorioCheck))
+                .then(createModCommand(TRAVELERS_BACKPACK_ID, TRAVELERS_BACKPACK_ID, this::executeTravelersBackpackCheck))
+                .then(createModCommand(QUARK_ID, QUARK_ID + "-backpack", this::executeQuarkBackpackCheck))
+                .then(createModCommand(BACKPACKED_ID, BACKPACKED_ID + "-backpack", this::executeBackpackedBackpackCheck))
         );
     }
 
-    private int executeQuarkBackPackCheck(CommandContext<CommandSourceStack> context, ServerPlayer targetPlayer) {
-        if (targetPlayer.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof BackpackItem) {
-            boolean canOpen = true;
-
-            if (!PlayerQuarkBackpackScreenHandler.quarkBackpackScreenTargetPlayers.isEmpty()) {
-                for (int i = 0; i < PlayerQuarkBackpackScreenHandler.quarkBackpackScreenTargetPlayers.size(); i++) {
-                    if (PlayerQuarkBackpackScreenHandler.quarkBackpackScreenTargetPlayers.get(i).getDisplayName().equals(targetPlayer.getDisplayName())) {
-                        canOpen = false;
-                        break;
-                    }
-                }
-            }
-            if (canOpen) {
-                MenuProvider screenHandlerFactory = new MenuProvider() {
-                    @Override
-                    public @NotNull Component getDisplayName() {
-                        return targetPlayer.getDisplayName();
-                    }
-
-                    @Override
-                    public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player1) {
-                        return new PlayerQuarkBackpackScreenHandler(i, (ServerPlayer) context.getSource().getEntity(), targetPlayer);
-                    }
-                };
-
-                NetworkHooks.openScreen((ServerPlayer) context.getSource().getEntity(), screenHandlerFactory);
-            } else {
-                context.getSource().sendFailure(Component.literal("ERROR: The quark backpack container is already being used by another player."));
-            }
-        } else {
-            context.getSource().getEntity().sendSystemMessage(Component.literal("The player does not have a currently equipped backpack."));
-        }
-        return 1;
+    private LiteralArgumentBuilder<CommandSourceStack> createCommand(String literal, Command<CommandSourceStack> command) {
+        return Commands.literal(literal).then(Commands.argument(TARGET_ID, GameProfileArgument.gameProfile()).executes(command));
     }
 
-
-    private int executeTravelersBackPackCheck(CommandContext<CommandSourceStack> context, ServerPlayer targetPlayer) {
-        if (CapabilityUtils.isWearingBackpack(targetPlayer)) {
-            if (!context.getSource().getLevel().isClientSide) {
-                NetworkHooks.openScreen((ServerPlayer) context.getSource().getEntity(), CapabilityUtils.getBackpackInv(targetPlayer), packetBuffer -> packetBuffer.writeByte(Reference.WEARABLE_SCREEN_ID));
-            }
-        } else {
-            context.getSource().getEntity().sendSystemMessage(Component.literal("The player does not have a currently equipped backpack."));
-        }
-        return 1;
+    private LiteralArgumentBuilder<CommandSourceStack> createModCommand(String modId, String literalCommand, Command<CommandSourceStack> command) {
+        return ModList.get().isLoaded(modId) ? createCommand(literalCommand, command) : Commands.literal("");
     }
 
-
-    private int executeInventorioCheck(CommandContext<CommandSourceStack> context, ServerPlayer player) throws CommandSyntaxException {
+    private int executeBackpackedBackpackCheck(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer commandExecutor = context.getSource().getPlayer();
         ServerPlayer targetPlayer = getRequestedPlayer(context);
-        boolean canOpen = true;
 
-        if (!PlayerInventorioScreenHandler.inventorioScreenTargetPlayers.isEmpty()) {
-            for (int i = 0; i < PlayerInventorioScreenHandler.inventorioScreenTargetPlayers.size(); i++) {
-                if (PlayerInventorioScreenHandler.inventorioScreenTargetPlayers.get(i).getDisplayName().equals(targetPlayer.getDisplayName())) {
-                    canOpen = false;
-                    break;
-                }
-            }
+        ItemStack backpack = Services.BACKPACK.getBackpackStack(targetPlayer);
+        if (!backpack.isEmpty()) {
+            BackpackInventory backpackInventory = ((BackpackedInventoryAccess) targetPlayer).backpacked$GetBackpackInventory();
+            if (backpackInventory == null)
+                return 1;
+            com.mrcrayfish.backpacked.item.BackpackItem backpackItem = (com.mrcrayfish.backpacked.item.BackpackItem) backpack.getItem();
+            Component title = backpack.hasCustomHoverName() ? backpack.getHoverName() : BACKPACK_TRANSLATION;
+            int cols = backpackItem.getColumnCount();
+            int rows = backpackItem.getRowCount();
+            boolean owner = targetPlayer.equals(commandExecutor);
+            Services.BACKPACK.openBackpackScreen(commandExecutor, backpackInventory, cols, rows, owner, title);
         }
-        if (canOpen) {
-            MenuProvider screenHandlerFactory = new MenuProvider() {
-                @Override
-                public @NotNull Component getDisplayName() {
-                    return targetPlayer.getDisplayName();
+
+        return 1;
+    }
+
+    private int executeQuarkBackpackCheck(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer commandExecutor = context.getSource().getPlayer();
+        ServerPlayer targetPlayer = getRequestedPlayer(context);
+
+        if (ModList.get().isLoaded(QUARK_ID)) {
+            if (targetPlayer.getItemBySlot(EquipmentSlot.CHEST).getItem() instanceof BackpackItem) {
+                if (!InventoryLockManager.isLocked(targetPlayer.getUUID(), InventoryLockManager.InventoryType.QUARK_BACKPACK)) {
+                    openScreen(commandExecutor, targetPlayer, (i, inventory, player) -> new PlayerQuarkBackpackScreenHandler(i, commandExecutor, targetPlayer));
+                } else {
+                    sendInventoryInUseError(context);
                 }
-
-                @Override
-                public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player1) {
-                    return new PlayerInventorioScreenHandler(i, player, targetPlayer);
-
-                }
-            };
-
-            NetworkHooks.openScreen(player, screenHandlerFactory);
+            } else {
+                sendNoBackpackEquippedMessage(context);
+            }
         } else {
-            context.getSource().sendFailure(Component.literal("ERROR: The inventorio inventory container is already being used by another player."));
+            sendDependencyNotFoundError(context);
         }
         return 1;
     }
 
-    private int executeCuriosCheck(CommandContext<CommandSourceStack> context, ServerPlayer player) throws CommandSyntaxException {
+    private int executeTravelersBackpackCheck(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer commandExecutor = context.getSource().getPlayer();
+        ServerPlayer targetPlayer = getRequestedPlayer(context);
+
+        if (ModList.get().isLoaded(TRAVELERS_BACKPACK_ID)) {
+            if (CapabilityUtils.isWearingBackpack(targetPlayer)) {
+                if (!context.getSource().getLevel().isClientSide) {
+                    NetworkHooks.openScreen(commandExecutor, CapabilityUtils.getBackpackInv(targetPlayer), packetBuffer -> packetBuffer.writeByte(Reference.WEARABLE_SCREEN_ID));
+                }
+            } else {
+                sendNoBackpackEquippedMessage(context);
+            }
+        } else {
+            sendDependencyNotFoundError(context);
+        }
+        return 1;
+    }
+
+    private int executeInventorioCheck(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer commandExecutor = context.getSource().getPlayer();
+        ServerPlayer targetPlayer = getRequestedPlayer(context);
+
+        if (ModList.get().isLoaded(INVENTORIO_ID)) {
+            if (!InventoryLockManager.isLocked(targetPlayer.getUUID(), InventoryLockManager.InventoryType.INVENTORIO)) {
+                openScreen(commandExecutor, targetPlayer, (i, inventory, player) -> new PlayerInventorioScreenHandler(i, commandExecutor, targetPlayer));
+            } else {
+                sendInventoryInUseError(context);
+            }
+        } else {
+            sendDependencyNotFoundError(context);
+        }
+        return 1;
+    }
+
+    private int executeCuriosCheck(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer commandExecutor = context.getSource().getPlayer();
         ServerPlayer targetPlayer = getRequestedPlayer(context);
 
         if (ModList.get().isLoaded(CURIOS_ID)) {
-            boolean canOpen = true;
-
-            if (!PlayerCuriosInventoryScreenHandler.curiosInvScreenTargetPlayers.isEmpty()) {
-                for (int i = 0; i < PlayerCuriosInventoryScreenHandler.curiosInvScreenTargetPlayers.size(); i++) {
-                    if (PlayerCuriosInventoryScreenHandler.curiosInvScreenTargetPlayers.get(i).getDisplayName().equals(targetPlayer.getDisplayName())) {
-                        canOpen = false;
-                        break;
-                    }
-                }
-            }
-            if (canOpen) {
-                MenuProvider screenHandlerFactory = new MenuProvider() {
-                    @Override
-                    public @NotNull Component getDisplayName() {
-                        return targetPlayer.getDisplayName();
-                    }
-
-                    @Override
-                    public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player1) {
-                        AtomicInteger index = new AtomicInteger();
-                        CuriosApi.getCuriosInventory(targetPlayer).ifPresent(curiosHandler -> {
-                            for (ICurioStacksHandler handler : curiosHandler.getCurios().values()) {
-                                for (int j = 0; j < handler.getSlots(); j++) {
-                                    index.getAndIncrement();
-                                }
+            if (!InventoryLockManager.isLocked(targetPlayer.getUUID(), InventoryLockManager.InventoryType.CURIOS)) {
+                openScreen(commandExecutor, targetPlayer, (i, inventory, player) -> {
+                    AtomicInteger index = new AtomicInteger();
+                    CuriosApi.getCuriosInventory(targetPlayer).ifPresent(curiosHandler -> {
+                        for (ICurioStacksHandler handler : curiosHandler.getCurios().values()) {
+                            for (int j = 0; j < handler.getSlots(); j++) {
+                                index.getAndIncrement();
                             }
-                        });
-                        MenuType<ChestMenu> menuType;
-                        if (index.intValue() <= 9) {
-                            menuType = MenuType.GENERIC_9x1;
-                        } else if (index.intValue() <= 18) {
-                            menuType = MenuType.GENERIC_9x2;
-                        } else if (index.intValue() <= 36) {
-                            menuType = MenuType.GENERIC_9x4;
-                        } else if (index.intValue() <= 45) {
-                            menuType = MenuType.GENERIC_9x5;
-                        } else {
-                            menuType = MenuType.GENERIC_9x6;
                         }
-                        return new PlayerCuriosInventoryScreenHandler(menuType, i, player, targetPlayer);
-                    }
-                };
-
-                NetworkHooks.openScreen(player, screenHandlerFactory);
+                    });
+                    MenuType<ChestMenu> menuType = getMenuType(index.get());
+                    return new PlayerCuriosInventoryScreenHandler(menuType, i, commandExecutor, targetPlayer);
+                });
             } else {
-                context.getSource().sendFailure(Component.literal("ERROR: The curios inventory container is already being used by another player."));
+                sendInventoryInUseError(context);
             }
         } else {
-            context.getSource().sendFailure(Component.literal("ERROR: CuriosApi dependency not found!"));
+            sendDependencyNotFoundError(context);
         }
-
         return 1;
     }
-    private int executeCuriosCosmeticCheck(CommandContext<CommandSourceStack> context, ServerPlayer player) throws CommandSyntaxException {
+
+    private int executeCuriosCosmeticCheck(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer commandExecutor = context.getSource().getPlayer();
         ServerPlayer targetPlayer = getRequestedPlayer(context);
 
         if (ModList.get().isLoaded(CURIOS_ID)) {
-            boolean canOpen = true;
-
-            if (!PlayerCuriosCosmeticInventoryScreenHandler.curiosCosmeticInvScreenTargetPlayers.isEmpty()) {
-                for (int i = 0; i < PlayerCuriosCosmeticInventoryScreenHandler.curiosCosmeticInvScreenTargetPlayers.size(); i++) {
-                    if (PlayerCuriosCosmeticInventoryScreenHandler.curiosCosmeticInvScreenTargetPlayers.get(i).getDisplayName().equals(targetPlayer.getDisplayName())) {
-                        canOpen = false;
-                        break;
-                    }
-                }
-            }
-            if (canOpen) {
-                MenuProvider screenHandlerFactory = new MenuProvider() {
-                    @Override
-                    public @NotNull Component getDisplayName() {
-                        return targetPlayer.getDisplayName();
-                    }
-
-                    @Override
-                    public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player1) {
-                        AtomicInteger index = new AtomicInteger();
-                        CuriosApi.getCuriosInventory(targetPlayer).ifPresent(curiosHandler -> {
-                            for (ICurioStacksHandler handler : curiosHandler.getCurios().values()) {
-                                for (int j = 0; j < handler.getCosmeticStacks().getSlots(); j++) {
-                                    index.getAndIncrement();
-                                }
+            if (!InventoryLockManager.isLocked(targetPlayer.getUUID(), InventoryLockManager.InventoryType.CURIOS_COSMETIC)) {
+                openScreen(commandExecutor, targetPlayer, (i, inventory, player) -> {
+                    AtomicInteger index = new AtomicInteger();
+                    CuriosApi.getCuriosInventory(targetPlayer).ifPresent(curiosHandler -> {
+                        for (ICurioStacksHandler handler : curiosHandler.getCurios().values()) {
+                            for (int j = 0; j < handler.getCosmeticStacks().getSlots(); j++) {
+                                index.getAndIncrement();
                             }
-                        });
-                        MenuType<ChestMenu> menuType;
-                        if (index.intValue() <= 9) {
-                            menuType = MenuType.GENERIC_9x1;
-                        } else if (index.intValue() <= 18) {
-                            menuType = MenuType.GENERIC_9x2;
-                        } else if (index.intValue() <= 36) {
-                            menuType = MenuType.GENERIC_9x4;
-                        } else if (index.intValue() <= 45) {
-                            menuType = MenuType.GENERIC_9x5;
-                        } else {
-                            menuType = MenuType.GENERIC_9x6;
                         }
-                        return new PlayerCuriosCosmeticInventoryScreenHandler(menuType, i, player, targetPlayer);
-                    }
-                };
-
-                NetworkHooks.openScreen(player, screenHandlerFactory);
+                    });
+                    MenuType<ChestMenu> menuType = getMenuType(index.get());
+                    return new PlayerCuriosCosmeticInventoryScreenHandler(menuType, i, commandExecutor, targetPlayer);
+                });
             } else {
-                context.getSource().sendFailure(Component.literal("ERROR: The curios cosmetic inventory container is already being used by another player."));
+                sendInventoryInUseError(context);
             }
         } else {
-            context.getSource().sendFailure(Component.literal("ERROR: CuriosApi dependency not found!"));
-        }
-
-        return 1;
-    }
-
-    private int executeEnderChestCheck(CommandContext<CommandSourceStack> context, ServerPlayer player) throws CommandSyntaxException {
-        ServerPlayer targetPlayer = getRequestedPlayer(context);
-        boolean canOpen = true;
-
-        if (!PlayerEnderChestScreenHandler.endChestScreenTargetPlayers.isEmpty()) {
-            for (int i = 0; i < PlayerEnderChestScreenHandler.endChestScreenTargetPlayers.size(); i++) {
-                if (PlayerEnderChestScreenHandler.endChestScreenTargetPlayers.get(i).getDisplayName().equals(targetPlayer.getDisplayName())) {
-                    canOpen = false;
-                    break;
-                }
-            }
-        }
-        if (canOpen) {
-            MenuProvider screenHandlerFactory = new MenuProvider() {
-                @Override
-                public @NotNull Component getDisplayName() {
-                    return targetPlayer.getDisplayName();
-                }
-
-                @Override
-                public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player1) {
-                    MenuType<ChestMenu> menuType = switch (targetPlayer.getEnderChestInventory().getContainerSize()) {
-                        case 9 -> MenuType.GENERIC_9x1;
-                        case 18 -> MenuType.GENERIC_9x2;
-                        case 36 -> MenuType.GENERIC_9x4;
-                        case 45 -> MenuType.GENERIC_9x5;
-                        case 54 -> MenuType.GENERIC_9x6;
-                        default -> MenuType.GENERIC_9x3;
-                    };
-
-                    return new PlayerEnderChestScreenHandler(menuType, i, player, targetPlayer);
-
-                }
-            };
-
-            NetworkHooks.openScreen(player, screenHandlerFactory);
-        } else {
-            context.getSource().sendFailure(Component.literal("ERROR: The enderchest container is already being used by another player."));
+            sendDependencyNotFoundError(context);
         }
         return 1;
     }
 
-    private int executeInventoryCheck(CommandContext<CommandSourceStack> context, ServerPlayer player) throws CommandSyntaxException {
+    private int executeEnderChestCheck(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer commandExecutor = context.getSource().getPlayer();
         ServerPlayer targetPlayer = getRequestedPlayer(context);
 
-        boolean canOpen = true;
-
-        if (!PlayerInventoryScreenHandler.invScreenTargetPlayers.isEmpty()) {
-            for (int i = 0; i < PlayerInventoryScreenHandler.invScreenTargetPlayers.size(); i++) {
-                if (PlayerInventoryScreenHandler.invScreenTargetPlayers.get(i).getDisplayName().equals(targetPlayer.getDisplayName())) {
-                    canOpen = false;
-                    break;
-                }
-            }
-        }
-        if (canOpen) {
-            MenuProvider screenHandlerFactory = new MenuProvider() {
-                @Override
-                public @NotNull Component getDisplayName() {
-                    return targetPlayer.getDisplayName();
-                }
-
-                @Override
-                public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player1) {
-                    return new PlayerInventoryScreenHandler(i, player, targetPlayer);
-
-                }
-            };
-
-            NetworkHooks.openScreen(player, screenHandlerFactory);
+        if (!InventoryLockManager.isLocked(targetPlayer.getUUID(), InventoryLockManager.InventoryType.ENDER_CHEST)) {
+            openScreen(commandExecutor, targetPlayer, (i, inventory, player) -> {
+                MenuType<ChestMenu> menuType = getMenuType(targetPlayer.getEnderChestInventory().getContainerSize());
+                return new PlayerEnderChestScreenHandler(menuType, i, commandExecutor, targetPlayer);
+            });
         } else {
-            context.getSource().sendFailure(Component.literal("ERROR: The inventory container is already being used by another player."));
+            sendInventoryInUseError(context);
         }
         return 1;
     }
 
+    private int executeInventoryCheck(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer commandExecutor = context.getSource().getPlayer();
+        ServerPlayer targetPlayer = getRequestedPlayer(context);
 
-    private static ServerPlayer getRequestedPlayer(CommandContext<CommandSourceStack> context)
-            throws CommandSyntaxException {
+        if (!InventoryLockManager.isLocked(targetPlayer.getUUID(), InventoryLockManager.InventoryType.PLAYER_INVENTORY)) {
+            openScreen(commandExecutor, targetPlayer, (i, inventory, player) -> new PlayerInventoryScreenHandler(i, commandExecutor, targetPlayer));
+        } else {
+            sendInventoryInUseError(context);
+        }
+        return 1;
+    }
+
+    private void openScreen(ServerPlayer commandExecutor, ServerPlayer targetPlayer, ScreenHandlerFactory factory) {
+        MenuProvider screenHandlerFactory = new MenuProvider() {
+            @Override
+            public @NotNull Component getDisplayName() {
+                return targetPlayer.getDisplayName();
+            }
+
+            @Override
+            public @NotNull AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player) {
+                return factory.createMenu(i, inventory, player);
+            }
+        };
+
+        NetworkHooks.openScreen(commandExecutor, screenHandlerFactory);
+    }
+
+    private MenuType<ChestMenu> getMenuType(int size) {
+        if (size >= 0 && size <= 9) {
+            return MenuType.GENERIC_9x1;
+        } else if (size > 9 && size <= 18) {
+            return MenuType.GENERIC_9x2;
+        } else if (size > 18 && size <= 27) {
+            return MenuType.GENERIC_9x3;
+        } else if (size > 27 && size <= 36) {
+            return MenuType.GENERIC_9x4;
+        } else if (size > 36 && size <= 45) {
+            return MenuType.GENERIC_9x5;
+        } else {
+            return MenuType.GENERIC_9x6;
+        }
+    }
+
+    private void sendInventoryInUseError(CommandContext<CommandSourceStack> context) {
+        context.getSource().sendFailure(Component.translatable("inv_view_forge.command.error.inventory_in_use"));
+    }
+
+    private void sendDependencyNotFoundError(CommandContext<CommandSourceStack> context) {
+        context.getSource().sendFailure(Component.translatable("inv_view_forge.command.error.dependency_not_found"));
+    }
+
+    private void sendNoBackpackEquippedMessage(CommandContext<CommandSourceStack> context) {
+        context.getSource().sendFailure(Component.translatable("inv_view_forge.command.error.player_without_backpack"));
+    }
+
+    private static ServerPlayer getRequestedPlayer(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         MinecraftServer minecraftServer = context.getSource().getServer();
 
         GameProfile requestedProfile = GameProfileArgument.getGameProfiles(context, TARGET_ID).iterator().next();
@@ -369,5 +291,10 @@ public class InvViewCommands {
             }
         }
         return requestedPlayer;
+    }
+
+    @FunctionalInterface
+    private interface ScreenHandlerFactory {
+        AbstractContainerMenu createMenu(int i, @NotNull Inventory inventory, @NotNull Player player);
     }
 }
